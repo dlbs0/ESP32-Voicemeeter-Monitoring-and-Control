@@ -11,3 +11,7 @@ Pins are defined in the platformio.ini file, and can be matched to the pinout of
 
 Still a work in progress, currently can monitor bus 1, 2 and 3, and control the volume of these buses.
 Will add bus output control in the future.
+
+## Setup
+
+Define the IP of your Voicemeeter computer in main.cpp. Turn on VBAN and enable the incoming UTF8 stream with the default name (Command1). Don't think you need the IP of the ESP in VBAN, but doesn't hurt.
