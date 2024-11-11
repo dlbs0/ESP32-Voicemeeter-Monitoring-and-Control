@@ -1,6 +1,8 @@
 # ESP32-Voicemeeter-Monitoring-and-Control
 
-ESP32 Voicemeeter Monitoring and Control, using VBAN for control (easy) and VBAN RT PACKET UDP service for monitoring (less easy)
+ESP32 Voicemeeter Monitoring and Control, using VBAN for control (easy) and VBAN RT PACKET UDP service for monitoring (less easy).
+
+Very much a work in progress.
 
 ## Hardware
 
@@ -11,6 +13,8 @@ Pins are defined in the platformio.ini file, and can be matched to the pinout of
 
 Still a work in progress, currently can monitor bus 1, 2 and 3, and control the volume of these buses.
 Will add bus output control in the future.
+
+Information about the protocol was mostly obtained by reverse engineering the VM Streamer application, and studying some PCAPs.
 
 ## Setup
 

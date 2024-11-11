@@ -25,6 +25,7 @@ void sendCommand(String command);
 void incrementVolume(byte channel, bool up);
 std::vector<uint8_t> createRTPPacket();
 void printVector(std::vector<uint8_t> vec);
+bool getStripOutputEnabled(byte stripNo, byte outputNo);
 void setDisplayBrightness(byte brightness, bool instant = false);
 /*
     VOICEMEETER POTATO STRIP/BUS INDEX ASSIGNMENT
@@ -82,6 +83,12 @@ typedef struct tagVBAN_VMRT_PACKET
   char stripLabelUTF8c60[8][60]; // Strip Label
   char busLabelUTF8c60[8][60];   // Bus Label
 } T_VBAN_VMRT_PACKET, *PT_VBAN_VMRT_PACKET, *LPT_VBAN_VMRT_PACKET;
+
+#define VMRTSTATE_MODE_BUSA1 0x00001000
+#define VMRTSTATE_MODE_BUSA2 0x00002000
+#define VMRTSTATE_MODE_BUSA3 0x00004000
+#define VMRTSTATE_MODE_BUSA4 0x00008000
+#define VMRTSTATE_MODE_BUSA5 0x00080000
 
 // char currentPacket[sizeof(tagVBAN_VMRT_PACKET) + 50]; // allow a little extra space
 tagVBAN_VMRT_PACKET cpTest;
@@ -178,7 +185,7 @@ void setup()
                    char packetDate[sizeof(tagVBAN_VMRT_PACKET)];
                    memcpy(packetDate, packet.data(), packet.length());
                    tagVBAN_VMRT_PACKET const *cpTestz = reinterpret_cast<tagVBAN_VMRT_PACKET const *>(packetDate);
-                   memcpy(&cpTest, packetDate, sizeof(tagVBAN_VMRT_PACKET)); 
+                   memcpy(&cpTest, packetDate, sizeof(tagVBAN_VMRT_PACKET));
                    lastLevelsRecievedTime = millis(); });
   }
   else
@@ -211,7 +218,7 @@ void loop()
       sprite.drawArc(120, 120, 120, 80, -arcOffsetAngle, arcOffsetAngle, bg_color, bg_color, false); // black out the bottom to get straight edges
       String dbString = String(cpTest.stripGaindB100Layer2[5 + selectedVolumeArc] / 100) + "dB";
       sprite.drawCentreString(dbString, 120, 200, 4);
-      if (millis() - lastTouchTime < 5000)
+      if (millis() - lastTouchTime < 5000) // TODO rewrite this to be stateful
         setDisplayBrightness(255, true);
       else
         setDisplayBrightness(40);
@@ -281,9 +288,37 @@ void loop()
     Udp.writeTo(rtp_packet.data(), rtp_packet.size(), destIP, localPort);
     Serial.println("Sent RTP request");
     lastRTPRequestTime = millis();
+
+    Serial.print("Bus state: ");
+    for (byte i = 0; i < 8; i++)
+    {
+      Serial.print(getStripOutputEnabled(i, 0));
+      Serial.print(" ");
+    }
+    Serial.println();
     // sendCommand("strip(1).mute = 1");
     // sendCommand("Strip[5].A1 = 1");
     // sendCommand("System.KeyPress(\"MEDIAPAUSE / MEDIAPLAY\")");
+  }
+}
+
+bool getStripOutputEnabled(byte stripNo, byte outputNo)
+{
+  unsigned long stripState = cpTest.stripState[stripNo];
+  switch (outputNo)
+  {
+  case 0:
+    return stripState & VMRTSTATE_MODE_BUSA1;
+  case 1:
+    return stripState & VMRTSTATE_MODE_BUSA2;
+  case 2:
+    return stripState & VMRTSTATE_MODE_BUSA3;
+  case 3:
+    return stripState & VMRTSTATE_MODE_BUSA4;
+  case 4:
+    return stripState & VMRTSTATE_MODE_BUSA5;
+  default:
+    return false;
   }
 }
 
