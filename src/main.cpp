@@ -27,6 +27,7 @@ std::vector<uint8_t> createRTPPacket();
 void printVector(std::vector<uint8_t> vec);
 bool getStripOutputEnabled(byte stripNo, byte outputNo);
 void setDisplayBrightness(byte brightness, bool instant = false);
+void handleNewUDPPacket(AsyncUDPPacket packet);
 /*
     VOICEMEETER POTATO STRIP/BUS INDEX ASSIGNMENT
     | Strip 1 | Strip 2 | Strip 2 | Strip 2 | Strip 2 |Virtual Input|Virtual AUX|   VAIO3   |BUS A1|BUS A2|BUS A3|BUS A4|BUS A5|BUS B1|BUS B2|BUS B3|
@@ -90,22 +91,47 @@ typedef struct tagVBAN_VMRT_PACKET
 #define VMRTSTATE_MODE_BUSA4 0x00008000
 #define VMRTSTATE_MODE_BUSA5 0x00080000
 
+#pragma pack(1)
+
+struct tagVBAN_HEADER
+{
+  unsigned long vban;       // contains 'V' 'B', 'A', 'N'
+  unsigned char format_SR;  // SR index (see SRList above)
+  unsigned char format_nbs; // nb sample per frame (1 to 256)
+  unsigned char format_nbc; // nb channel (1 to 256)
+  unsigned char format_bit; // mask = 0x07 (see DATATYPE table below)
+  char streamname[16];      // stream name
+  unsigned long nuFrame;    // growing frame number
+};
+
+#pragma pack()
+
+typedef struct tagVBAN_HEADER T_VBAN_HEADER;
+typedef struct tagVBAN_HEADER *PT_VBAN_HEADER;
+typedef struct tagVBAN_HEADER *LPT_VBAN_HEADER;
+
+#define VBAN_PROTOCOL_MASK 0xE0
+#define VBAN_PROTOCOL_SERVICE 0x60
+
+#define VBAN_SERVICE_RTPACKETREGISTER 32
+#define VBAN_SERVICE_RTPACKET 33
+
 // char currentPacket[sizeof(tagVBAN_VMRT_PACKET) + 50]; // allow a little extra space
-tagVBAN_VMRT_PACKET cpTest;
+tagVBAN_VMRT_PACKET currentRTPPacket;
 unsigned long lastLevelsRecievedTime = 0;
 byte targetBrightness = 250;
 
 // return number between 0 and 6000
 short getOutputLevel(byte channel)
 {
-  short val = cpTest.inputLeveldB100[channel] + dbMinOffset;
+  short val = currentRTPPacket.inputLeveldB100[channel] + dbMinOffset;
   if (val < 0)
     val = 0;
   return val;
 }
 short getStripLevel(byte channel)
 {
-  short val = cpTest.stripGaindB100Layer1[channel] + dbMinOffset;
+  short val = currentRTPPacket.stripGaindB100Layer1[channel] + dbMinOffset;
   if (val < 0)
     val = 0;
   return val;
@@ -154,6 +180,29 @@ void drawVolumeArcs(byte selected, short levels[9])
   }
 }
 
+void handleNewUDPPacket(AsyncUDPPacket packet)
+{
+  LPT_VBAN_HEADER lpHeader;
+  lpHeader = (LPT_VBAN_HEADER)packet.data();
+  if ((packet.length() > sizeof(T_VBAN_HEADER)) && (lpHeader->vban == 0x4E414256)) // Hex value is NABV
+  {
+    unsigned char protocol = lpHeader->format_SR & VBAN_PROTOCOL_MASK;
+    if (protocol == VBAN_PROTOCOL_SERVICE)
+    {
+      if (lpHeader->format_nbc == VBAN_SERVICE_RTPACKET)
+      {
+        // if it's a RTPacket
+        if (packet.length() >= sizeof(T_VBAN_VMRT_PACKET))
+        {
+          memcpy(&currentRTPPacket, packet.data(), sizeof(tagVBAN_VMRT_PACKET));
+
+          lastLevelsRecievedTime = millis();
+        }
+      }
+    }
+  }
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -180,13 +229,7 @@ void setup()
   if (Udp.listen(localPort))
   {
     Serial.println("UDP connected");
-    Udp.onPacket([](AsyncUDPPacket packet)
-                 {
-                   char packetDate[sizeof(tagVBAN_VMRT_PACKET)];
-                   memcpy(packetDate, packet.data(), packet.length());
-                   tagVBAN_VMRT_PACKET const *cpTestz = reinterpret_cast<tagVBAN_VMRT_PACKET const *>(packetDate);
-                   memcpy(&cpTest, packetDate, sizeof(tagVBAN_VMRT_PACKET));
-                   lastLevelsRecievedTime = millis(); });
+    Udp.onPacket(handleNewUDPPacket);
   }
   else
   {
@@ -216,7 +259,7 @@ void loop()
       drawVolumeArcs(selectedVolumeArc, levels);
 
       sprite.drawArc(120, 120, 120, 80, -arcOffsetAngle, arcOffsetAngle, bg_color, bg_color, false); // black out the bottom to get straight edges
-      String dbString = String(cpTest.stripGaindB100Layer2[5 + selectedVolumeArc] / 100) + "dB";
+      String dbString = String(currentRTPPacket.stripGaindB100Layer2[5 + selectedVolumeArc] / 100) + "dB";
       sprite.drawCentreString(dbString, 120, 200, 4);
       if (millis() - lastTouchTime < 5000) // TODO rewrite this to be stateful
         setDisplayBrightness(255, true);
@@ -304,7 +347,7 @@ void loop()
 
 bool getStripOutputEnabled(byte stripNo, byte outputNo)
 {
-  unsigned long stripState = cpTest.stripState[stripNo];
+  unsigned long stripState = currentRTPPacket.stripState[stripNo];
   switch (outputNo)
   {
   case 0:
