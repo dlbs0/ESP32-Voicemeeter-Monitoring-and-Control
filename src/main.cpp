@@ -9,15 +9,24 @@ TFT_eSprite sprite = TFT_eSprite(&tft);
 #define arcOffsetAngle 40
 #define dbMinOffset 6000
 #define numVolumeArcs 3
+#define TFTSIZE 240
+
+#define numBuses 3
+#define numOutputs 3
 
 CST816S touch(21, 22, 33, 32); // sda, scl, rst, irq
-
-// WiFiUDP Udp;
 AsyncUDP Udp;
-
 WiFiManager wifiManager;
 unsigned int localPort = 6980; // local port to listen on
 IPAddress destIP(192, 168, 72, 244);
+
+enum UiState
+{
+  LOADING,
+  DISCONNECTED,
+  MONITOR,
+  OUTPUTS
+};
 
 // put function declarations here:
 std::vector<uint8_t> createCommandPacket(String &command);
@@ -28,6 +37,8 @@ void printVector(std::vector<uint8_t> vec);
 bool getStripOutputEnabled(byte stripNo, byte outputNo);
 void setDisplayBrightness(byte brightness, bool instant = false);
 void handleNewUDPPacket(AsyncUDPPacket packet);
+void drawUi(UiState currentState);
+void handleTouches();
 /*
     VOICEMEETER POTATO STRIP/BUS INDEX ASSIGNMENT
     | Strip 1 | Strip 2 | Strip 2 | Strip 2 | Strip 2 |Virtual Input|Virtual AUX|   VAIO3   |BUS A1|BUS A2|BUS A3|BUS A4|BUS A5|BUS B1|BUS B2|BUS B3|
@@ -120,6 +131,14 @@ typedef struct tagVBAN_HEADER *LPT_VBAN_HEADER;
 tagVBAN_VMRT_PACKET currentRTPPacket;
 unsigned long lastLevelsRecievedTime = 0;
 byte targetBrightness = 250;
+UiState currentPage = LOADING;
+struct pendingButton
+{
+  bool isPending = false;
+  bool pendingState = false;
+  unsigned long pendingTime = 0;
+};
+pendingButton pendingButtonGridState[numBuses * numOutputs] = {pendingButton()};
 
 // return number between 0 and 6000
 short getOutputLevel(byte channel)
@@ -180,6 +199,62 @@ void drawVolumeArcs(byte selected, short levels[9])
   }
 }
 
+#define buttonWidthSmall 30
+#define buttonHeightSmall 20
+#define gridGapSmall 5
+
+#define buttonWidthLarge 60
+#define buttonHeightLarge 60
+#define gridGapLarge 10
+
+#define screenCenter 120
+
+void drawBusOutputSelectButtons(uint16_t fg_color, byte bWidth, byte bHeight, byte gGap)
+{
+  byte totalWidth = (bWidth * numBuses + gGap * (numBuses - 1));
+  byte halfWidth = totalWidth / 2;
+  byte topOfButtons = (screenCenter - ((numOutputs * bHeight) + (gGap * (numOutputs - 1))) / 2);
+
+  for (byte i = 0; i < numBuses; i++)
+  {
+    int leftmostPoint = screenCenter - halfWidth + (i * (bWidth + gGap));
+    for (byte j = 0; j < numOutputs; j++)
+    {
+      // handle pending changes. Show grey background if pending. Check pending state befre showing
+      bool changePending = pendingButtonGridState[i * numOutputs + j].isPending;
+      bool actualState = getStripOutputEnabled(i + 5, j);
+      bool shouldShowPending = false;
+      if (changePending)
+      {
+        if (actualState == pendingButtonGridState[i * numOutputs + j].pendingState || millis() - pendingButtonGridState[i * numOutputs + j].pendingTime > 8000)
+          pendingButtonGridState[i * numOutputs + j].isPending = false;
+        else
+          shouldShowPending = true;
+      }
+
+      // actually show the buttons
+      if (shouldShowPending)
+      {
+        sprite.fillRoundRect(leftmostPoint, topOfButtons + (j * (bHeight + gGap)), bWidth, bHeight, 5, TFT_DARKGREY);
+        sprite.setTextColor(TFT_WHITE);
+        sprite.drawCentreString("A" + String(j + 1), leftmostPoint + bWidth / 2 + 1, topOfButtons + (j * (bHeight + gGap)) + bHeight / 2 - 8, 2);
+      }
+      else if (actualState)
+      {
+        sprite.fillRoundRect(leftmostPoint, topOfButtons + (j * (bHeight + gGap)), bWidth, bHeight, 5, fg_color);
+        sprite.setTextColor(TFT_BLACK);
+        sprite.drawCentreString("A" + String(j + 1), leftmostPoint + bWidth / 2 + 1, topOfButtons + (j * (bHeight + gGap)) + bHeight / 2 - 8, 2);
+      }
+      else
+      {
+        sprite.drawRoundRect(leftmostPoint, topOfButtons + (j * (bHeight + gGap)), bWidth, bHeight, 5, fg_color);
+        sprite.setTextColor(fg_color);
+        sprite.drawCentreString("A" + String(j + 1), leftmostPoint + bWidth / 2 + 1, topOfButtons + (j * (bHeight + gGap)) + bHeight / 2 - 8, 2);
+      }
+    }
+  }
+}
+
 void handleNewUDPPacket(AsyncUDPPacket packet)
 {
   LPT_VBAN_HEADER lpHeader;
@@ -230,6 +305,7 @@ void setup()
   {
     Serial.println("UDP connected");
     Udp.onPacket(handleNewUDPPacket);
+    currentPage = MONITOR;
   }
   else
   {
@@ -244,42 +320,135 @@ byte selectedVolumeArc = 0;
 
 void loop()
 {
+  // Sert the current UI state and variables
+  if (millis() - lastLevelsRecievedTime > 5000)
+    currentPage = DISCONNECTED;
+  else if (currentPage == DISCONNECTED)
+    currentPage = MONITOR;
+
+  handleTouches();
+
   if (millis() - lastFrameTime > 10)
   {
-    lastFrameTime = millis();
-    uint16_t fg_color = 0xaff3;
-    uint16_t bg_color = TFT_BLACK; // This is the background colour used for smoothing (anti-aliasing)
-    sprite.setColorDepth(8);
-    sprite.createSprite(240, 240);
-    sprite.fillSprite(bg_color);
-
-    if (millis() - lastLevelsRecievedTime < 2000)
-    {
-      short levels[9] = {getStripLevel(13), getOutputLevel(10), getOutputLevel(11), getStripLevel(14), getOutputLevel(18), getOutputLevel(19), getStripLevel(15), getOutputLevel(26), getOutputLevel(27)};
-      drawVolumeArcs(selectedVolumeArc, levels);
-
-      sprite.drawArc(120, 120, 120, 80, -arcOffsetAngle, arcOffsetAngle, bg_color, bg_color, false); // black out the bottom to get straight edges
-      String dbString = String(currentRTPPacket.stripGaindB100Layer2[5 + selectedVolumeArc] / 100) + "dB";
-      sprite.drawCentreString(dbString, 120, 200, 4);
-      if (millis() - lastTouchTime < 5000) // TODO rewrite this to be stateful
-        setDisplayBrightness(255, true);
-      else
-        setDisplayBrightness(40);
-    }
-    else
-    {
-      sprite.drawCentreString("Disconnected", 120, 94, 4);
-      sprite.drawCentreString(WiFi.localIP().toString(), 120, 120, 2);
-      setDisplayBrightness(4);
-    }
-
-    sprite.pushSprite(0, 0);
-    sprite.deleteSprite();
+    drawUi(currentPage);
   }
 
-  if (touch.available() && millis() - lastTouchTime > 100)
+  if (millis() - lastRTPRequestTime > 10000 || lastRTPRequestTime == 0)
   {
+    // need to keep sending requests for more realtime data
+    std::vector<uint8_t> rtp_packet = createRTPPacket();
+    Udp.writeTo(rtp_packet.data(), rtp_packet.size(), destIP, localPort);
+    lastRTPRequestTime = millis();
+
+    // sendCommand("strip(1).mute = 1");
+    // sendCommand("Strip[5].A1 = 1");
+    // sendCommand("System.KeyPress(\"MEDIAPAUSE / MEDIAPLAY\")");
+  }
+}
+
+void drawUi(UiState currentState)
+{
+  lastFrameTime = millis();
+  uint16_t fg_color = 0xaff3;
+  uint16_t bg_color = TFT_BLACK; // This is the background colour used for smoothing (anti-aliasing)
+  sprite.setColorDepth(8);
+  sprite.createSprite(TFTSIZE, TFTSIZE);
+  sprite.fillSprite(bg_color);
+
+  if (currentPage == MONITOR)
+  {
+    short levels[9] = {getStripLevel(13), getOutputLevel(10), getOutputLevel(11), getStripLevel(14), getOutputLevel(18), getOutputLevel(19), getStripLevel(15), getOutputLevel(26), getOutputLevel(27)};
+    drawVolumeArcs(selectedVolumeArc, levels);
+
+    sprite.drawArc(120, 120, 120, 80, -arcOffsetAngle, arcOffsetAngle, bg_color, bg_color, false); // black out the bottom to get straight edges
+    String dbString = String(currentRTPPacket.stripGaindB100Layer2[5 + selectedVolumeArc] / 100) + "dB";
+    sprite.drawCentreString(dbString, 120, 200, 4);
+
+    drawBusOutputSelectButtons(fg_color, buttonWidthSmall, buttonHeightSmall, gridGapSmall);
+    if (millis() - lastTouchTime < 5000) // TODO rewrite this to be stateful
+      setDisplayBrightness(255, true);
+    else
+      setDisplayBrightness(40);
+  }
+  else if (currentPage == OUTPUTS)
+  {
+    drawBusOutputSelectButtons(fg_color, buttonWidthLarge, buttonHeightLarge, gridGapLarge);
+  }
+
+  else if (currentPage == DISCONNECTED)
+  {
+    sprite.drawCentreString("Disconnected", 120, 94, 4);
+    sprite.drawCentreString(WiFi.localIP().toString(), 120, 120, 2);
+    setDisplayBrightness(4);
+  }
+
+  sprite.pushSprite(0, 0);
+  sprite.deleteSprite();
+}
+
+void handleButtonTouches(int x, int y)
+{
+  // Detect which button is being pressed
+  int tpx = TFTSIZE - x;
+  int tpy = TFTSIZE - y;
+  // Work out which strip is being pressed (x axis)
+  int buttonGridWidth = (buttonWidthLarge * numBuses + gridGapLarge * (numBuses - 1));
+  int leftMostPoint = screenCenter - buttonGridWidth / 2;
+  int rightMostPoint = screenCenter + buttonGridWidth / 2;
+  if (tpx < leftMostPoint || tpx > rightMostPoint)
+    return;
+  if (tpy < leftMostPoint || tpy > rightMostPoint) // it's a square, cheating
+    return;
+  byte xIndex = (tpx - leftMostPoint) / (buttonGridWidth / numBuses);
+  byte yIndex = (tpy - leftMostPoint) / (buttonGridWidth / numOutputs);
+  bool newState = !getStripOutputEnabled(5 + xIndex, yIndex);
+  String commandString = "Strip[" + String(5 + xIndex) + "].A" + String(yIndex + 1) + " = " + String(newState);
+  Serial.println(commandString);
+  sendCommand(commandString);
+
+  // update the pending button infor
+  pendingButtonGridState[xIndex * numOutputs + yIndex].isPending = true;
+  pendingButtonGridState[xIndex * numOutputs + yIndex].pendingState = newState;
+  pendingButtonGridState[xIndex * numOutputs + yIndex].pendingTime = millis();
+
+  Serial.print("xIndex: ");
+  Serial.println(xIndex);
+}
+
+bool inTouchPeriod = false;
+int touchPeriodStartPoint[2];
+
+void handleTouches()
+{
+  // if (touch.available() && millis() - lastTouchTime > 150)
+  if (touch.available())
+  {
+    bool isFingerDown = touch.data.points;
+    if (isFingerDown && !inTouchPeriod)
+    {
+      inTouchPeriod = true;
+      touchPeriodStartPoint[0] = touch.data.x;
+      touchPeriodStartPoint[1] = touch.data.y;
+    }
     byte gestureId = touch.data.gestureID;
+    if (touch.data.points == 0 && touch.data.event == 1 && gestureId == NONE)
+    {
+      // user took their finger off, but system didn't detect a gesture
+      // Try and detect some more single clicks here
+      inTouchPeriod = false;
+      Serial.println("In last resort touch func");
+
+      // get the distance from the start of the period to where we are now.
+      int dx = touchPeriodStartPoint[0] - touch.data.x;
+      int dy = touchPeriodStartPoint[1] - touch.data.y;
+      int distance = sqrt(dx * dx + dy * dy);
+      if (distance < 10)
+        gestureId = SINGLE_CLICK;
+    }
+
+    if (gestureId != SINGLE_CLICK && millis() - lastTouchTime < 150) // slow down the repeated gestures
+      return;
+
     if (gestureId != NONE)
     {
       lastTouchTime = millis();
@@ -287,24 +456,38 @@ void loop()
       {
 
       case SWIPE_DOWN:
-        incrementVolume(selectedVolumeArc, false);
+        if (currentPage == MONITOR)
+          incrementVolume(selectedVolumeArc, false);
         break;
       case SWIPE_UP:
-        incrementVolume(selectedVolumeArc, true);
+        if (currentPage == MONITOR)
+          incrementVolume(selectedVolumeArc, true);
         break;
       case SWIPE_RIGHT:
-        if (selectedVolumeArc == 0)
-          selectedVolumeArc = numVolumeArcs - 1;
-        else
-          selectedVolumeArc--;
+        if (currentPage == MONITOR)
+        {
+          if (selectedVolumeArc == 0)
+            selectedVolumeArc = numVolumeArcs - 1;
+          else
+            selectedVolumeArc--;
+        }
         break;
       case SWIPE_LEFT:
-        if (selectedVolumeArc == numVolumeArcs - 1)
-          selectedVolumeArc = 0;
-        else
-          selectedVolumeArc++;
+        if (currentPage == OUTPUTS)
+          currentPage = MONITOR;
+        else if (currentPage == MONITOR)
+        {
+          if (selectedVolumeArc == numVolumeArcs - 1)
+            selectedVolumeArc = 0;
+          else
+            selectedVolumeArc++;
+        }
         break;
       case SINGLE_CLICK:
+        if (currentPage == MONITOR)
+          currentPage = OUTPUTS;
+        else if (currentPage == OUTPUTS)
+          handleButtonTouches(touch.data.x, touch.data.y);
         break;
       case DOUBLE_CLICK:
         break;
@@ -324,27 +507,7 @@ void loop()
     Serial.print("\t");
     Serial.println(touch.data.y);
   }
-
-  if (millis() - lastRTPRequestTime > 10000 || lastRTPRequestTime == 0)
-  {
-    std::vector<uint8_t> rtp_packet = createRTPPacket();
-    Udp.writeTo(rtp_packet.data(), rtp_packet.size(), destIP, localPort);
-    Serial.println("Sent RTP request");
-    lastRTPRequestTime = millis();
-
-    Serial.print("Bus state: ");
-    for (byte i = 0; i < 8; i++)
-    {
-      Serial.print(getStripOutputEnabled(i, 0));
-      Serial.print(" ");
-    }
-    Serial.println();
-    // sendCommand("strip(1).mute = 1");
-    // sendCommand("Strip[5].A1 = 1");
-    // sendCommand("System.KeyPress(\"MEDIAPAUSE / MEDIAPLAY\")");
-  }
 }
-
 bool getStripOutputEnabled(byte stripNo, byte outputNo)
 {
   unsigned long stripState = currentRTPPacket.stripState[stripNo];
@@ -427,11 +590,10 @@ std::vector<uint8_t> createRTPPacket()
   std::vector<uint8_t> rtp_packet = {0x56, 0x42, 0x41, 0x4e, 0x60, 0x00, 0x20, 0x0f, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x20, 0x52, 0x54, 0x50, 0x01, 0x59, 0x41, 0, 0, 0, 0, 154};
 
   // Print the mute_packet
-  Serial.print("RTP packet: ");
-  printVector(rtp_packet);
-  // Print the size of mute_packet
-  Serial.print("Size of rtp_packet: ");
-  Serial.println(sizeof(rtp_packet));
+  // Serial.print("RTP packet: ");
+  // printVector(rtp_packet);
+  // Serial.print("Size of rtp_packet: ");
+  // Serial.println(sizeof(rtp_packet));
   return rtp_packet;
 }
 
