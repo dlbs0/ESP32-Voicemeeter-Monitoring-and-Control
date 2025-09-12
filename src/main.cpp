@@ -11,10 +11,13 @@ TFT_eSprite sprite = TFT_eSprite(&tft);
 #define numVolumeArcs 3
 #define TFTSIZE 240
 
+#define dimmingPin 14
+
 #define numBuses 3
 #define numOutputs 3
 
-CST816S touch(21, 22, 33, 32); // sda, scl, rst, irq
+// CST816S touch(21, 22, 33, 32); // sda, scl, rst, irq
+CST816S touch(37, 38, 36, 35); // sda, scl, rst, irq
 AsyncUDP Udp;
 WiFiManager wifiManager;
 unsigned int localPort = 6980; // local port to listen on
@@ -280,10 +283,15 @@ void handleNewUDPPacket(AsyncUDPPacket packet)
 
 void setup()
 {
+  pinMode(45, OUTPUT);
+  digitalWrite(45, HIGH); // enable peripheral power
+  pinMode(0, OUTPUT);
+  digitalWrite(0, HIGH); // something something reset
+  // delay(5000);
   Serial.begin(115200);
   Serial.println("Starting...");
 
-  pinMode(5, OUTPUT);
+  pinMode(dimmingPin, OUTPUT);
   setDisplayBrightness(100);
 
   tft.init();
@@ -320,7 +328,7 @@ byte selectedVolumeArc = 0;
 
 void loop()
 {
-  // Sert the current UI state and variables
+  // Set the current UI state and variables
   if (millis() - lastLevelsRecievedTime > 5000)
     currentPage = DISCONNECTED;
   else if (currentPage == DISCONNECTED)
@@ -492,6 +500,8 @@ void handleTouches()
       case DOUBLE_CLICK:
         break;
       case LONG_PRESS:
+        // ESP.restart();
+        Serial.println("Long press detected");
         break;
       default:
         break;
@@ -548,7 +558,7 @@ void setDisplayBrightness(byte brightness, bool instant)
       else
         currentBrightness--;
     }
-    analogWrite(5, currentBrightness);
+    analogWrite(dimmingPin, currentBrightness);
   }
 }
 
