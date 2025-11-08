@@ -2,6 +2,7 @@
 #include <WiFiManager.h> //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include "AsyncUDP.h"
 #include <TFT_eSPI.h> // Include the graphics library
+#include <MLX90393.h>
 #include <CST816S.h>
 
 TFT_eSPI tft = TFT_eSPI(); // Create object "tft"
@@ -20,8 +21,48 @@ TFT_eSprite sprite = TFT_eSprite(&tft);
 CST816S touch(37, 38, 36, 35); // sda, scl, rst, irq
 AsyncUDP Udp;
 WiFiManager wifiManager;
-unsigned int localPort = 6980; // local port to listen on
-IPAddress destIP(192, 168, 72, 244);
+unsigned int localPort = 6980;       // local port to listen on
+IPAddress destIP(192, 168, 72, 235); // Voicemeeter Potato IP
+#define WIRE Wire1
+
+class MLX90393_Configurable : public MLX90393
+{
+private:
+  uint8_t i2c_address;
+  MLX90393Hal *hal_ = nullptr;
+
+public:
+  MLX90393_Configurable(uint8_t address)
+      : i2c_address(address) {}
+
+  uint8_t begin_with_hal(MLX90393Hal *hal)
+  {
+    hal->set_address(i2c_address);
+    uint8_t baseStatus = MLX90393::begin_with_hal(hal, 0, 0);
+    hal->set_address(i2c_address); // overwrite to desired address
+    exit();
+
+    uint8_t status1 = checkStatus(reset());
+    uint8_t status2 = setGainSel(7);
+    uint8_t status3 = setResolution(0, 0, 0);
+    uint8_t status4 = setOverSampling(3);
+    uint8_t status5 = setDigitalFiltering(7);
+    uint8_t status6 = setTemperatureCompensation(0);
+
+    return status1 | status2 | status3 | status4 | status5 | status6;
+  }
+};
+
+MLX90393_Configurable mlx(0x18);
+MLX90393ArduinoHal arduinoHal;
+
+const int INT_PIN = 10; // Use pin 2 for interrupt (INT pin on MLX90393)
+volatile bool dataReady = false;
+
+void dataReadyISR()
+{
+  dataReady = true;
+}
 
 enum UiState
 {
@@ -35,6 +76,7 @@ enum UiState
 std::vector<uint8_t> createCommandPacket(String &command);
 void sendCommand(String command);
 void incrementVolume(byte channel, bool up);
+void setVolume(byte channel, float level);
 std::vector<uint8_t> createRTPPacket();
 void printVector(std::vector<uint8_t> vec);
 bool getStripOutputEnabled(byte stripNo, byte outputNo);
@@ -42,6 +84,7 @@ void setDisplayBrightness(byte brightness, bool instant = false);
 void handleNewUDPPacket(AsyncUDPPacket packet);
 void drawUi(UiState currentState);
 void handleTouches();
+void handleRotation();
 /*
     VOICEMEETER POTATO STRIP/BUS INDEX ASSIGNMENT
     | Strip 1 | Strip 2 | Strip 2 | Strip 2 | Strip 2 |Virtual Input|Virtual AUX|   VAIO3   |BUS A1|BUS A2|BUS A3|BUS A4|BUS A5|BUS B1|BUS B2|BUS B3|
@@ -294,6 +337,20 @@ void setup()
   pinMode(dimmingPin, OUTPUT);
   setDisplayBrightness(100);
 
+  WIRE.begin(8, 9, 10000000UL);
+  attachInterrupt(digitalPinToInterrupt(INT_PIN), dataReadyISR, RISING);
+  arduinoHal.set_twoWire(&WIRE);
+
+  uint8_t status = mlx.begin_with_hal(&arduinoHal); // A1, A0
+  mlx.reset();
+
+  Serial.println(mlx.setGainSel(1));
+  Serial.println(mlx.setResolution(17, 17, 16)); // x, y, z)
+  Serial.println(mlx.setOverSampling(2));
+  Serial.println(mlx.setDigitalFiltering(4));
+
+  mlx.startBurst(MLX90393::X_FLAG | MLX90393::Y_FLAG | MLX90393::Z_FLAG);
+
   tft.init();
   tft.setRotation(2);
   tft.fillScreen(TFT_BLACK);
@@ -324,7 +381,13 @@ void setup()
 unsigned long lastRTPRequestTime = 0;
 unsigned long lastFrameTime = 0;
 unsigned long lastTouchTime = 0;
+unsigned long lastRotationTime = 0;
+unsigned long lastInteractionTime = 0;
 byte selectedVolumeArc = 0;
+MLX90393::txyzRaw data; // Structure to hold x, y, z data
+float lastAngle = -100;
+#define ROTATION_ANGLE_TO_DB_CHANGE 9.0 // degrees
+#define ANGLE_DEADBAND 3.0              // degrees
 
 void loop()
 {
@@ -335,6 +398,8 @@ void loop()
     currentPage = MONITOR;
 
   handleTouches();
+  handleRotation();
+  lastInteractionTime = max(lastTouchTime, lastRotationTime);
 
   if (millis() - lastFrameTime > 10)
   {
@@ -363,7 +428,7 @@ void drawUi(UiState currentState)
   sprite.createSprite(TFTSIZE, TFTSIZE);
   sprite.fillSprite(bg_color);
 
-  if (currentPage == MONITOR)
+  if (currentState == MONITOR)
   {
     short levels[9] = {getStripLevel(13), getOutputLevel(10), getOutputLevel(11), getStripLevel(14), getOutputLevel(18), getOutputLevel(19), getStripLevel(15), getOutputLevel(26), getOutputLevel(27)};
     drawVolumeArcs(selectedVolumeArc, levels);
@@ -373,17 +438,17 @@ void drawUi(UiState currentState)
     sprite.drawCentreString(dbString, 120, 200, 4);
 
     drawBusOutputSelectButtons(fg_color, buttonWidthSmall, buttonHeightSmall, gridGapSmall);
-    if (millis() - lastTouchTime < 5000) // TODO rewrite this to be stateful
+    if (millis() - lastInteractionTime < 5000) // TODO rewrite this to be stateful
       setDisplayBrightness(255, true);
     else
       setDisplayBrightness(40);
   }
-  else if (currentPage == OUTPUTS)
+  else if (currentState == OUTPUTS)
   {
     drawBusOutputSelectButtons(fg_color, buttonWidthLarge, buttonHeightLarge, gridGapLarge);
   }
 
-  else if (currentPage == DISCONNECTED)
+  else if (currentState == DISCONNECTED)
   {
     sprite.drawCentreString("Disconnected", 120, 94, 4);
     sprite.drawCentreString(WiFi.localIP().toString(), 120, 120, 2);
@@ -518,6 +583,52 @@ void handleTouches()
     Serial.println(touch.data.y);
   }
 }
+
+void handleRotation()
+{
+  // Read magnetometer data if ready
+  if (dataReady)
+  {
+    dataReady = false;
+
+    // Read the magnetometer data (this should be fast in burst mode)
+    if (mlx.readMeasurement(MLX90393::X_FLAG | MLX90393::Y_FLAG | MLX90393::Z_FLAG, data))
+    {
+      int16_t x = static_cast<int16_t>(data.x);
+      int16_t y = static_cast<int16_t>(data.y);
+      int16_t z = static_cast<int16_t>(data.z);
+      float angle = atan2(-y, x);
+      angle = angle * 180 / PI; // convert to degrees
+      angle += 180;             // offset to 0-360 degrees
+
+      int arcAngle = angle - 90;
+      if (arcAngle < 0)
+        arcAngle += 360;
+
+      if (lastAngle == -100)
+        lastAngle = angle;
+
+      float angleDiff = angle - lastAngle;
+      if (angleDiff > 180)
+        angleDiff -= 360;
+      if (angleDiff < -180)
+        angleDiff += 360;
+
+      if (abs(angleDiff) > ANGLE_DEADBAND)
+      {
+        lastAngle = angle;
+        lastRotationTime = millis();
+        if (currentPage != MONITOR)
+          return;
+        float dbChange = angleDiff / ROTATION_ANGLE_TO_DB_CHANGE;
+        setVolume(selectedVolumeArc, dbChange);
+      }
+
+      // setVolume(selectedVolumeArc, getStripLevel(13));
+    }
+  }
+}
+
 bool getStripOutputEnabled(byte stripNo, byte outputNo)
 {
   unsigned long stripState = currentRTPPacket.stripState[stripNo];
@@ -541,6 +652,11 @@ bool getStripOutputEnabled(byte stripNo, byte outputNo)
 void incrementVolume(byte channel, bool up)
 {
   String command = "strip(" + String(channel + 5) + ").gain " + (up ? "+" : "-") + "= 3";
+  sendCommand(command);
+}
+void setVolume(byte channel, float level)
+{
+  String command = "strip(" + String(channel + 5) + ").gain " + "+= " + String(level, 2);
   sendCommand(command);
 }
 
