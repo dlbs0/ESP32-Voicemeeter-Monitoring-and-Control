@@ -124,11 +124,13 @@ void DisplayManager::updateArcs()
     {
         bool is_selected = (i == selectedVolumeArc);
         int base_radius = TFTSIZE / 2; // Base radius for the largest arc set
+        const short borderWidth = 2;
         int radius = base_radius - offset;
         if (is_selected)
             offset += 18;
         else
             offset += 10;
+        offset += borderWidth;
 
         lv_obj_set_size(strip_arcs[i], radius * 2, radius * 2);
         lv_arc_set_value(strip_arcs[i], (getStripLevel(13 + i)));
@@ -136,6 +138,10 @@ void DisplayManager::updateArcs()
         lv_obj_set_style_arc_width(strip_arcs[i], is_selected ? 18 : 10, LV_PART_INDICATOR);
         // lv_style_set_arc_color(&style_arc_indicator, lv_color_hex(is_selected ? 0x70c399 : 0x5549));
         lv_obj_set_style_arc_color(strip_arcs[i], lv_color_hex(is_selected ? 0x70c399 : 0x5549), LV_PART_INDICATOR);
+
+        // border
+        lv_obj_set_style_outline_width(arc_sets[i], borderWidth, LV_PART_MAIN);
+        lv_obj_set_style_outline_color(arc_sets[i], lv_color_hex(0xFF0000), LV_PART_MAIN);
 
         // Left monitor level arc (slightly larger than main)
         lv_obj_set_size(level_arcs_l[i], (radius) * 2, (radius) * 2);
