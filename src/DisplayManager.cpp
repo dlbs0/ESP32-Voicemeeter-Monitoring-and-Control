@@ -1,4 +1,5 @@
 #include "DisplayManager.h"
+// #include "ui/ui.h"
 #define dbMinOffset 6000
 // local constants used by DisplayManager
 #define TFTSIZE 240
@@ -13,21 +14,21 @@ long DisplayManager::lastTouchTime = 0;
 short DisplayManager::selectedVolumeArc = 0;
 bool DisplayManager::connectionStatus = false;
 
-lv_obj_t *DisplayManager::screen_monitor = nullptr;
-lv_obj_t *DisplayManager::screen_outputs = nullptr;
-lv_obj_t *DisplayManager::screen_disconnected = nullptr;
-lv_obj_t *DisplayManager::label_ip_disconnected = nullptr;
-lv_obj_t *DisplayManager::arc_sets[numVolumeArcs] = {nullptr};
+// lv_obj_t *DisplayManager::screen_monitor = nullptr;
+// lv_obj_t *DisplayManager::screen_outputs = nullptr;
+// lv_obj_t *DisplayManager::screen_disconnected = nullptr;
+// lv_obj_t *DisplayManager::label_ip_disconnected = nullptr;
+// lv_obj_t *DisplayManager::arc_sets[numVolumeArcs] = {nullptr};
 lv_obj_t *DisplayManager::strip_arcs[numVolumeArcs] = {nullptr};
 lv_obj_t *DisplayManager::level_arcs_l[numVolumeArcs] = {nullptr};
 lv_obj_t *DisplayManager::level_arcs_r[numVolumeArcs] = {nullptr};
-lv_obj_t *DisplayManager::label_db = nullptr;
-lv_obj_t *DisplayManager::output_buttons[numBuses][numOutputs] = {{nullptr}};
+// lv_obj_t *DisplayManager::label_db = nullptr;
+// lv_obj_t *DisplayManager::output_buttons[numBuses][numOutputs] = {{nullptr}};
 
-lv_style_t DisplayManager::style_arc_main;
-lv_style_t DisplayManager::style_arc_indicator;
-lv_style_t DisplayManager::style_arc_level_bg;
-lv_style_t DisplayManager::style_arc_level_ind;
+// lv_style_t DisplayManager::style_arc_main;
+// lv_style_t DisplayManager::style_arc_indicator;
+// lv_style_t DisplayManager::style_arc_level_bg;
+// lv_style_t DisplayManager::style_arc_level_ind;
 
 DisplayManager::DisplayManager()
 {
@@ -49,12 +50,13 @@ void DisplayManager::begin()
     lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_180);
 
     // Create basic LVGL screens and widgets
-    screen_monitor = lv_obj_create(NULL);
-    screen_outputs = lv_obj_create(NULL);
-    screen_disconnected = lv_obj_create(NULL);
+    // screen_monitor = lv_obj_create(NULL);
+    // screen_outputs = lv_obj_create(NULL);
+    // screen_disconnected = lv_obj_create(NULL);
+    ui_init();
 
     initialiseLvglScreens();
-    lv_scr_load(screen_disconnected);
+    // lv_scr_load(screen_disconnected);
 
     touch.begin();
 
@@ -73,33 +75,35 @@ void DisplayManager::begin()
 void DisplayManager::update()
 {
     auto currentlyActiveScreen = lv_disp_get_scr_act(lv_display_get_default());
+
     // Serial.println("Current screen ptr: " + String((uintptr_t)currentlyActiveScreen, HEX));
-    // Serial.println("Disconnected screen ptr: " + String((uintptr_t)screen_disconnected, HEX));
+    // Serial.println("Disconnected screen ptr: " + String((uintptr_t)ui_Loading, HEX));
     // // Serial.println("Outputs screen ptr: " + String((uintptr_t)screen_outputs, HEX));
-    // Serial.println("Monitor screen ptr: " + String((uintptr_t)screen_monitor, HEX));
+    // Serial.println("Monitor screen ptr: " + String((uintptr_t)ui_Monitor, HEX));
     // Serial.println("Connection status: " + String(connectionStatus ? "Connected" : "Disconnected"));
 
     if (!connectionStatus)
     {
-        lv_scr_load(screen_disconnected);
+        if (currentlyActiveScreen != ui_Loading)
+            lv_scr_load(ui_Loading);
         currentScreen = DISCONNECTED;
     }
-    else if (currentlyActiveScreen != screen_outputs)
+    else if (currentlyActiveScreen != ui_OutputMatrix && currentlyActiveScreen != ui_Config) // should be outputs
     {
-        lv_scr_load(screen_monitor);
+        lv_scr_load(ui_Monitor);
         currentScreen = MONITOR;
     }
-    else if (currentlyActiveScreen == screen_outputs)
+    else if (currentlyActiveScreen == ui_OutputMatrix)
     {
         currentScreen = OUTPUTS;
     }
 
-    if (currentlyActiveScreen == screen_monitor)
+    if (currentlyActiveScreen == ui_Monitor)
     {
         updateArcs();
         // Update dB label
         int dbValue = getStripLevel(13 + selectedVolumeArc);
-        lv_label_set_text_fmt(label_db, "%+d dB", convertLevelToDb(dbValue));
+        lv_label_set_text_fmt(ui_LabelArcLevel, "%+.1f dB", convertLevelToDb(dbValue));
     }
 
     lv_timer_handler(); // Update the UI-
@@ -118,169 +122,179 @@ void DisplayManager::updateArcs()
 {
     short outputLevels[numVolumeArcs * 2] = {getOutputLevel(10), getOutputLevel(11), getOutputLevel(18), getOutputLevel(19), getOutputLevel(26), getOutputLevel(27)};
 
-    short offset = 0;
+    // short offset = 0;
     // Monitor screen layout: Create arc sets
     for (int i = 0; i < numVolumeArcs; ++i)
     {
         bool is_selected = (i == selectedVolumeArc);
-        int base_radius = TFTSIZE / 2; // Base radius for the largest arc set
-        const short borderWidth = 2;
-        int radius = base_radius - offset;
-        if (is_selected)
-            offset += 18;
-        else
-            offset += 10;
-        offset += borderWidth;
+        // int base_radius = TFTSIZE / 2; // Base radius for the largest arc set
+        // const short borderWidth = 2;
+        // int radius = base_radius - offset;
+        // if (is_selected)
+        //     offset += 18;
+        // else
+        //     offset += 10;
+        // offset += borderWidth;
 
-        lv_obj_set_size(strip_arcs[i], radius * 2, radius * 2);
+        // lv_arc_set_value(ui_LevelArc1, (getStripLevel(13)));
+
+        // lv_obj_set_size(strip_arcs[i], radius * 2, radius * 2);
         lv_arc_set_value(strip_arcs[i], (getStripLevel(13 + i)));
-        lv_obj_set_style_arc_width(strip_arcs[i], is_selected ? 18 : 10, LV_PART_MAIN);
-        lv_obj_set_style_arc_width(strip_arcs[i], is_selected ? 18 : 10, LV_PART_INDICATOR);
+        // lv_obj_set_style_arc_width(strip_arcs[i], is_selected ? 18 : 10, LV_PART_MAIN);
+        // lv_obj_set_style_arc_width(strip_arcs[i], is_selected ? 18 : 10, LV_PART_INDICATOR);
         // lv_style_set_arc_color(&style_arc_indicator, lv_color_hex(is_selected ? 0x70c399 : 0x5549));
-        lv_obj_set_style_arc_color(strip_arcs[i], lv_color_hex(is_selected ? 0x70c399 : 0x5549), LV_PART_INDICATOR);
-
-        // border
-        lv_obj_set_style_outline_width(arc_sets[i], borderWidth, LV_PART_MAIN);
-        lv_obj_set_style_outline_color(arc_sets[i], lv_color_hex(0xFF0000), LV_PART_MAIN);
+        lv_obj_set_style_arc_color(strip_arcs[i], lv_color_hex(is_selected ? 0x70C399 : 0x44765C), LV_PART_INDICATOR);
 
         // Left monitor level arc (slightly larger than main)
-        lv_obj_set_size(level_arcs_l[i], (radius) * 2, (radius) * 2);
-        lv_arc_set_value(level_arcs_l[i], (outputLevels[i * 2]));
-        lv_obj_set_style_arc_width(level_arcs_l[i], is_selected ? 9 : 5, LV_PART_MAIN);
-        lv_obj_set_style_arc_width(level_arcs_l[i], is_selected ? 9 : 5, LV_PART_INDICATOR);
+        // lv_obj_set_size(level_arcs_l[i], (radius) * 2, (radius) * 2);
+        lv_arc_set_value(level_arcs_l[i], (outputLevels[i * 2] * getStripLevel(13 + i) / dbMinOffset));
+        // lv_obj_set_style_arc_width(level_arcs_l[i], is_selected ? 9 : 5, LV_PART_MAIN);
+        // lv_obj_set_style_arc_width(level_arcs_l[i], is_selected ? 9 : 5, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_color(level_arcs_l[i], lv_color_hex(is_selected ? 0x92FFC8 : 0x529070), LV_PART_INDICATOR);
 
         // Right monitor level arc (slightly smaller than main)
-        lv_obj_set_size(level_arcs_r[i], (radius - (is_selected ? 9 : 5)) * 2, (radius - (is_selected ? 9 : 5)) * 2);
-        lv_arc_set_value(level_arcs_r[i], (outputLevels[i * 2 + 1]));
-        lv_obj_set_style_arc_width(level_arcs_r[i], is_selected ? 9 : 5, LV_PART_MAIN);
-        lv_obj_set_style_arc_width(level_arcs_r[i], is_selected ? 9 : 5, LV_PART_INDICATOR);
+        // lv_obj_set_size(level_arcs_r[i], (radius - (is_selected ? 9 : 5)) * 2, (radius - (is_selected ? 9 : 5)) * 2);
+        lv_arc_set_value(level_arcs_r[i], (outputLevels[i * 2 + 1] * getStripLevel(13 + i) / dbMinOffset));
+        // lv_obj_set_style_arc_width(level_arcs_r[i], is_selected ? 9 : 5, LV_PART_MAIN);
+        // lv_obj_set_style_arc_width(level_arcs_r[i], is_selected ? 9 : 5, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_color(level_arcs_r[i], lv_color_hex(is_selected ? 0x92FFC8 : 0x529070), LV_PART_INDICATOR);
     }
 }
 
 void DisplayManager::initialiseLvglScreens()
-{
-    short offset = 0;
-    // Monitor screen layout: Create arc sets
-    for (int i = 0; i < numVolumeArcs; ++i)
-    {
-        int base_radius = TFTSIZE / 2; // Base radius for the largest arc set
-        int radius = base_radius - offset;
-        offset += 10;
+{ // assign UI arc widgets to the pre-declared arrays
+    strip_arcs[0] = ui_LevelArc1;
+    strip_arcs[1] = ui_LevelArc2;
+    strip_arcs[2] = ui_LevelArc3;
+    level_arcs_l[0] = ui_MonitorArcL1;
+    level_arcs_l[1] = ui_MonitorArcL2;
+    level_arcs_l[2] = ui_MonitorArcL3;
+    level_arcs_r[0] = ui_MonitorArcR1;
+    level_arcs_r[1] = ui_MonitorArcR2;
+    level_arcs_r[2] = ui_MonitorArcR3;
+    Serial.println("LVGL initialized");
+    // short offset = 0;
+    // // Monitor screen layout: Create arc sets
+    // for (int i = 0; i < numVolumeArcs; ++i)
+    // {
+    //     int base_radius = TFTSIZE / 2; // Base radius for the largest arc set
+    //     int radius = base_radius - offset;
+    //     offset += 10;
 
-        // Container for this set of arcs
-        arc_sets[i] = lv_obj_create(screen_monitor);
-        lv_obj_remove_style_all(arc_sets[i]);
-        lv_obj_set_size(arc_sets[i], TFTSIZE, TFTSIZE);
-        lv_obj_center(arc_sets[i]);
+    //     // Container for this set of arcs
+    //     arc_sets[i] = lv_obj_create(screen_monitor);
+    //     lv_obj_remove_style_all(arc_sets[i]);
+    //     lv_obj_set_size(arc_sets[i], TFTSIZE, TFTSIZE);
+    //     lv_obj_center(arc_sets[i]);
 
-        // Left monitor level arc (slightly larger than main)
-        level_arcs_l[i] = lv_arc_create(arc_sets[i]);
-        lv_obj_remove_style_all(level_arcs_l[i]);
-        lv_obj_add_style(level_arcs_l[i], &style_arc_level_bg, LV_PART_MAIN);
-        lv_obj_add_style(level_arcs_l[i], &style_arc_level_ind, LV_PART_INDICATOR);
-        lv_obj_set_size(level_arcs_l[i], (radius) * 2, (radius) * 2);
-        lv_obj_center(level_arcs_l[i]);
+    //     // Left monitor level arc (slightly larger than main)
+    //     level_arcs_l[i] = lv_arc_create(arc_sets[i]);
+    //     lv_obj_remove_style_all(level_arcs_l[i]);
+    //     lv_obj_add_style(level_arcs_l[i], &style_arc_level_bg, LV_PART_MAIN);
+    //     lv_obj_add_style(level_arcs_l[i], &style_arc_level_ind, LV_PART_INDICATOR);
+    //     lv_obj_set_size(level_arcs_l[i], (radius) * 2, (radius) * 2);
+    //     lv_obj_center(level_arcs_l[i]);
 
-        lv_arc_set_mode(level_arcs_l[i], LV_ARC_MODE_NORMAL);
-        lv_arc_set_range(level_arcs_l[i], 0, dbMinOffset);
-        // lv_arc_set_range(level_arcs_l[i], 0, 100);
-        lv_arc_set_bg_angles(level_arcs_l[i], arcOffsetAngle, 360 - arcOffsetAngle);
-        lv_arc_set_rotation(level_arcs_l[i], 90); // Start from top
-        lv_arc_set_value(level_arcs_l[i], 0);
-        lv_obj_set_style_arc_width(level_arcs_l[i], 5, 0);
-        lv_obj_set_style_arc_width(level_arcs_l[i], 5, LV_PART_INDICATOR);
+    //     lv_arc_set_mode(level_arcs_l[i], LV_ARC_MODE_NORMAL);
+    //     lv_arc_set_range(level_arcs_l[i], 0, dbMinOffset);
+    //     // lv_arc_set_range(level_arcs_l[i], 0, 100);
+    //     lv_arc_set_bg_angles(level_arcs_l[i], arcOffsetAngle, 360 - arcOffsetAngle);
+    //     lv_arc_set_rotation(level_arcs_l[i], 90); // Start from top
+    //     lv_arc_set_value(level_arcs_l[i], 0);
+    //     lv_obj_set_style_arc_width(level_arcs_l[i], 5, 0);
+    //     lv_obj_set_style_arc_width(level_arcs_l[i], 5, LV_PART_INDICATOR);
 
-        // Right monitor level arc (slightly smaller than main)
-        level_arcs_r[i] = lv_arc_create(arc_sets[i]);
-        lv_obj_remove_style_all(level_arcs_r[i]);
-        lv_obj_add_style(level_arcs_r[i], &style_arc_level_bg, LV_PART_MAIN);
-        lv_obj_add_style(level_arcs_r[i], &style_arc_level_ind, LV_PART_INDICATOR);
-        lv_obj_set_size(level_arcs_r[i], (radius - 5) * 2, (radius - 5) * 2);
-        lv_obj_center(level_arcs_r[i]);
+    //     // Right monitor level arc (slightly smaller than main)
+    //     level_arcs_r[i] = lv_arc_create(arc_sets[i]);
+    //     lv_obj_remove_style_all(level_arcs_r[i]);
+    //     lv_obj_add_style(level_arcs_r[i], &style_arc_level_bg, LV_PART_MAIN);
+    //     lv_obj_add_style(level_arcs_r[i], &style_arc_level_ind, LV_PART_INDICATOR);
+    //     lv_obj_set_size(level_arcs_r[i], (radius - 5) * 2, (radius - 5) * 2);
+    //     lv_obj_center(level_arcs_r[i]);
 
-        lv_arc_set_mode(level_arcs_r[i], LV_ARC_MODE_NORMAL);
-        lv_arc_set_range(level_arcs_r[i], 0, dbMinOffset);
-        // lv_arc_set_range(level_arcs_r[i], 0, 100);
-        lv_arc_set_bg_angles(level_arcs_r[i], arcOffsetAngle, 360 - arcOffsetAngle);
-        lv_arc_set_rotation(level_arcs_r[i], 90); // Start from top
-        lv_arc_set_value(level_arcs_r[i], 0);
-        lv_obj_set_style_arc_width(level_arcs_r[i], 5, 0);
-        lv_obj_set_style_arc_width(level_arcs_r[i], 5, LV_PART_INDICATOR);
+    //     lv_arc_set_mode(level_arcs_r[i], LV_ARC_MODE_NORMAL);
+    //     lv_arc_set_range(level_arcs_r[i], 0, dbMinOffset);
+    //     // lv_arc_set_range(level_arcs_r[i], 0, 100);
+    //     lv_arc_set_bg_angles(level_arcs_r[i], arcOffsetAngle, 360 - arcOffsetAngle);
+    //     lv_arc_set_rotation(level_arcs_r[i], 90); // Start from top
+    //     lv_arc_set_value(level_arcs_r[i], 0);
+    //     lv_obj_set_style_arc_width(level_arcs_r[i], 5, 0);
+    //     lv_obj_set_style_arc_width(level_arcs_r[i], 5, LV_PART_INDICATOR);
 
-        // Create the main strip volume arc
-        strip_arcs[i] = lv_arc_create(arc_sets[i]);
-        lv_obj_remove_style_all(strip_arcs[i]);
-        lv_obj_add_style(strip_arcs[i], &style_arc_main, LV_PART_MAIN);
-        lv_obj_add_style(strip_arcs[i], &style_arc_indicator, LV_PART_INDICATOR);
-        lv_obj_set_size(strip_arcs[i], radius * 2, radius * 2);
-        lv_obj_center(strip_arcs[i]);
+    //     // Create the main strip volume arc
+    //     strip_arcs[i] = lv_arc_create(arc_sets[i]);
+    //     lv_obj_remove_style_all(strip_arcs[i]);
+    //     lv_obj_add_style(strip_arcs[i], &style_arc_main, LV_PART_MAIN);
+    //     lv_obj_add_style(strip_arcs[i], &style_arc_indicator, LV_PART_INDICATOR);
+    //     lv_obj_set_size(strip_arcs[i], radius * 2, radius * 2);
+    //     lv_obj_center(strip_arcs[i]);
 
-        lv_arc_set_mode(strip_arcs[i], LV_ARC_MODE_NORMAL);
-        lv_arc_set_range(strip_arcs[i], 0, dbMinOffset);
-        lv_arc_set_bg_angles(strip_arcs[i], arcOffsetAngle, 360 - arcOffsetAngle);
-        lv_arc_set_rotation(strip_arcs[i], 90); // Start from top
-        lv_arc_set_value(strip_arcs[i], 0);
-        lv_obj_set_style_arc_width(strip_arcs[i], 10, LV_PART_MAIN);
-        lv_obj_set_style_arc_width(strip_arcs[i], 10, LV_PART_INDICATOR);
-    }
-    label_db = lv_label_create(screen_monitor);
-    lv_label_set_text(label_db, "");
-    lv_obj_align(label_db, LV_ALIGN_BOTTOM_MID, 0, -10);
+    //     lv_arc_set_mode(strip_arcs[i], LV_ARC_MODE_NORMAL);
+    //     lv_arc_set_range(strip_arcs[i], 0, dbMinOffset);
+    //     lv_arc_set_bg_angles(strip_arcs[i], arcOffsetAngle, 360 - arcOffsetAngle);
+    //     lv_arc_set_rotation(strip_arcs[i], 90); // Start from top
+    //     lv_arc_set_value(strip_arcs[i], 0);
+    //     lv_obj_set_style_arc_width(strip_arcs[i], 10, LV_PART_MAIN);
+    //     lv_obj_set_style_arc_width(strip_arcs[i], 10, LV_PART_INDICATOR);
+    // }
+    // label_db = lv_label_create(screen_monitor);
+    // lv_label_set_text(label_db, "");
+    // lv_obj_align(label_db, LV_ALIGN_BOTTOM_MID, 0, -10);
 
-    // Outputs screen: create grid of buttons
-    for (int i = 0; i < numBuses; ++i)
-    {
-        for (int j = 0; j < numOutputs; ++j)
-        {
-            output_buttons[i][j] = lv_btn_create(screen_outputs);
-            lv_obj_set_size(output_buttons[i][j], 60, 60);
-            lv_obj_align(output_buttons[i][j], LV_ALIGN_TOP_LEFT, 20 + i * 70, 20 + j * 70);
-            lv_obj_add_event_cb(output_buttons[i][j], output_btn_event_cb, LV_EVENT_CLICKED, this);
-            lv_obj_t *lbl = lv_label_create(output_buttons[i][j]);
-            lv_label_set_text_fmt(lbl, "A%d", j + 1);
-            lv_obj_center(lbl);
-        }
-    }
+    // // Outputs screen: create grid of buttons
+    // for (int i = 0; i < numBuses; ++i)
+    // {
+    //     for (int j = 0; j < numOutputs; ++j)
+    //     {
+    //         output_buttons[i][j] = lv_btn_create(screen_outputs);
+    //         lv_obj_set_size(output_buttons[i][j], 60, 60);
+    //         lv_obj_align(output_buttons[i][j], LV_ALIGN_TOP_LEFT, 20 + i * 70, 20 + j * 70);
+    //         lv_obj_add_event_cb(output_buttons[i][j], output_btn_event_cb, LV_EVENT_CLICKED, this);
+    //         lv_obj_t *lbl = lv_label_create(output_buttons[i][j]);
+    //         lv_label_set_text_fmt(lbl, "A%d", j + 1);
+    //         lv_obj_center(lbl);
+    //     }
+    // }
 
-    // Disconnected screen
-    lv_obj_t *lbl_disc = lv_label_create(screen_disconnected);
-    lv_label_set_text(lbl_disc, "Disconnected");
-    lv_obj_align(lbl_disc, LV_ALIGN_CENTER, 0, -10);
-    label_ip_disconnected = lv_label_create(screen_disconnected);
-    lv_label_set_text(label_ip_disconnected, "");
-    lv_obj_align(label_ip_disconnected, LV_ALIGN_CENTER, 0, 10);
+    // // Disconnected screen
+    // lv_obj_t *lbl_disc = lv_label_create(screen_disconnected);
+    // lv_label_set_text(lbl_disc, "Disconnected");
+    // lv_obj_align(lbl_disc, LV_ALIGN_CENTER, 0, -10);
+    // label_ip_disconnected = lv_label_create(screen_disconnected);
+    // lv_label_set_text(label_ip_disconnected, "");
+    // lv_obj_align(label_ip_disconnected, LV_ALIGN_CENTER, 0, 10);
 }
 
 /* Initialize arc styles */
 void DisplayManager::init_arc_styles(void)
 {
-    // Main volume arc background style
-    lv_style_init(&style_arc_main);
-    lv_style_set_arc_width(&style_arc_main, 18);
-    lv_style_set_arc_rounded(&style_arc_main, true);
-    lv_style_set_arc_color(&style_arc_main, lv_color_hex(0x222222));
-    lv_style_set_arc_opa(&style_arc_main, LV_OPA_50);
+    // // Main volume arc background style
+    // lv_style_init(&style_arc_main);
+    // lv_style_set_arc_width(&style_arc_main, 18);
+    // lv_style_set_arc_rounded(&style_arc_main, true);
+    // lv_style_set_arc_color(&style_arc_main, lv_color_hex(0x222222));
+    // lv_style_set_arc_opa(&style_arc_main, LV_OPA_50);
 
-    // Main volume arc indicator style
-    lv_style_init(&style_arc_indicator);
-    lv_style_set_arc_width(&style_arc_indicator, 18);
-    lv_style_set_arc_rounded(&style_arc_indicator, true);
-    lv_style_set_arc_color(&style_arc_indicator, lv_color_hex(0x5549));
-    lv_style_set_arc_opa(&style_arc_indicator, LV_OPA_COVER);
+    // // Main volume arc indicator style
+    // lv_style_init(&style_arc_indicator);
+    // lv_style_set_arc_width(&style_arc_indicator, 18);
+    // lv_style_set_arc_rounded(&style_arc_indicator, true);
+    // lv_style_set_arc_color(&style_arc_indicator, lv_color_hex(0x5549));
+    // lv_style_set_arc_opa(&style_arc_indicator, LV_OPA_COVER);
 
-    // Monitor level background style
-    lv_style_init(&style_arc_level_bg);
-    lv_style_set_arc_width(&style_arc_level_bg, 5);
-    lv_style_set_arc_rounded(&style_arc_level_bg, true);
-    lv_style_set_arc_color(&style_arc_level_bg, lv_color_hex(0x222222));
-    lv_style_set_arc_opa(&style_arc_level_bg, LV_OPA_TRANSP);
+    // // Monitor level background style
+    // lv_style_init(&style_arc_level_bg);
+    // lv_style_set_arc_width(&style_arc_level_bg, 5);
+    // lv_style_set_arc_rounded(&style_arc_level_bg, true);
+    // lv_style_set_arc_color(&style_arc_level_bg, lv_color_hex(0x222222));
+    // lv_style_set_arc_opa(&style_arc_level_bg, LV_OPA_TRANSP);
 
-    // Monitor level indicator style
-    lv_style_init(&style_arc_level_ind);
-    lv_style_set_arc_width(&style_arc_level_ind, 5);
-    lv_style_set_arc_rounded(&style_arc_level_ind, false);
-    lv_style_set_arc_color(&style_arc_level_ind, lv_color_hex(0x84b0b9));
-    lv_style_set_arc_opa(&style_arc_level_ind, LV_OPA_COVER);
+    // // Monitor level indicator style
+    // lv_style_init(&style_arc_level_ind);
+    // lv_style_set_arc_width(&style_arc_level_ind, 5);
+    // lv_style_set_arc_rounded(&style_arc_level_ind, false);
+    // lv_style_set_arc_color(&style_arc_level_ind, lv_color_hex(0x84b0b9));
+    // lv_style_set_arc_opa(&style_arc_level_ind, LV_OPA_COVER);
 }
 
 // Helper to find a button index from object pointer
@@ -391,7 +405,7 @@ void DisplayManager::lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
                 //   break;
 
             case SWIPE_RIGHT:
-                if (currentlyActiveScreen == screen_monitor)
+                if (currentlyActiveScreen == ui_Monitor)
                 {
                     if (selectedVolumeArc == 0)
                         selectedVolumeArc = numVolumeArcs - 1;
@@ -400,9 +414,9 @@ void DisplayManager::lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
                 }
                 break;
             case SWIPE_LEFT:
-                if (currentlyActiveScreen == screen_outputs)
-                    lv_scr_load(screen_monitor);
-                else if (currentlyActiveScreen == screen_monitor)
+                if (currentlyActiveScreen == ui_OutputMatrix)
+                    lv_scr_load(ui_Monitor);
+                else if (currentlyActiveScreen == ui_Monitor)
                 {
                     if (selectedVolumeArc == numVolumeArcs - 1)
                         selectedVolumeArc = 0;
@@ -421,8 +435,10 @@ void DisplayManager::lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
                 break;
             case LONG_PRESS:
                 Serial.println("Long press detected");
-                delay(500);
-                ESP.restart();
+                // lv_scr_load(ui_Config);
+
+                // delay(500);
+                // ESP.restart();
                 break;
             default:
                 break;
@@ -486,8 +502,8 @@ float DisplayManager::convertLevelToDb(int level)
 {
     // level is 0 to 6000
     // output should be -60.0 to 0.0
-    Serial.println("Convert level to dB: " + String(level));
-    Serial.println("Resulting dB: " + String((static_cast<float>(level) / 100.0f) - 60.0f));
+    // Serial.println("Convert level to dB: " + String(level));
+    // Serial.println("Resulting dB: " + String((static_cast<float>(level) / 100.0f) - 60.0f));
     return (static_cast<float>(level) / 100.0f) - 60.0f;
 }
 

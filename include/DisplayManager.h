@@ -4,6 +4,7 @@
 #include <CST816S.h>
 #include <lvgl.h>
 #include "VoicemeeterProtocol.h"
+#include "ui/ui.h"
 
 #define BUF_SIZE 240 * 240
 
@@ -55,13 +56,13 @@ private:
     uint8_t lv_buffer[BUF_SIZE];
 
     /* LVGL UI objects */
-    static lv_obj_t *screen_monitor;
-    static lv_obj_t *screen_outputs;
-    static lv_obj_t *screen_disconnected;
-    static lv_obj_t *label_ip_disconnected;
+    // static lv_obj_t *screen_monitor;
+    // static lv_obj_t *screen_outputs;
+    // static lv_obj_t *screen_disconnected;
+    // static lv_obj_t *label_ip_disconnected;
 
     // For monitor: arc sets for each strip and outputs
-    static lv_obj_t *arc_sets[numVolumeArcs];     // Container for each set of arcs
+    // static lv_obj_t *arc_sets[numVolumeArcs];     // Container for each set of arcs
     static lv_obj_t *strip_arcs[numVolumeArcs];   // Main volume arc
     static lv_obj_t *level_arcs_l[numVolumeArcs]; // Left channel level arc
     static lv_obj_t *level_arcs_r[numVolumeArcs]; // Right channel level arc
