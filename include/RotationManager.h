@@ -48,6 +48,7 @@ private:
     long lastRotationTime;
     static const int INT_PIN = 10; // (INT pin on MLX90393)
     volatile bool dataReady;
+    short numStartupSamples = 0;
 
     static void IRAM_ATTR dataReadyISR();
     void configureInterrupt(uint8_t intPin);
