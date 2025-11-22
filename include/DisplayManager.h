@@ -6,6 +6,9 @@
 #include "VoicemeeterProtocol.h"
 #include "ui/ui.h"
 
+#define dbMinOffset 6000
+#define TFTSIZE 240
+#define arcOffsetAngle 40
 #define BUF_SIZE 240 * 240
 
 #define numVolumeArcs 3
@@ -44,9 +47,9 @@ private:
     static bool connectionStatus;
     static short selectedVolumeArc;
     UiState currentScreen = LOADING;
-    void initialiseLvglScreens();
+    void setupLvglVaribleReferences();
     void updateArcs();
-    static void init_arc_styles(void);
+    void updateOutputButtons(bool previewButtons);
     short getStripLevel(byte channel);
     short getOutputLevel(byte channel);
     float convertLevelToPercent(int level);
@@ -67,6 +70,7 @@ private:
     static lv_obj_t *level_arcs_l[numVolumeArcs]; // Left channel level arc
     static lv_obj_t *level_arcs_r[numVolumeArcs]; // Right channel level arc
     static lv_obj_t *label_db;
+    static char dbLabelText[16];
 
     // For outputs: grid buttons
     static lv_obj_t *output_buttons[numBuses][numOutputs];

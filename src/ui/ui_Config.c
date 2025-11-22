@@ -43,7 +43,16 @@ void ui_event_BackButton(lv_event_t * e)
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        _ui_screen_change(&ui_Monitor, LV_SCR_LOAD_ANIM_OUT_TOP, 500, 0, &ui_Monitor_screen_init);
+        _ui_screen_change(&ui_Monitor, LV_SCR_LOAD_ANIM_OUT_TOP, 300, 0, &ui_Monitor_screen_init);
+    }
+}
+
+void ui_event_ResetButton(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        restartESP(e);
     }
 }
 
@@ -183,6 +192,7 @@ void ui_Config_screen_init(void)
     lv_obj_add_event_cb(ui_IPMinus, ui_event_IPMinus, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_IPPlus, ui_event_IPPlus, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_BackButton, ui_event_BackButton, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_ResetButton, ui_event_ResetButton, LV_EVENT_ALL, NULL);
 
 }
 

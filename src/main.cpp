@@ -25,14 +25,14 @@ void setup()
   digitalWrite(45, HIGH); // enable peripheral power
   pinMode(0, OUTPUT);
   digitalWrite(0, HIGH); // something something reset
-  // delay(5000);
+  // delay(4000);
   Serial.begin(115200);
   Serial.println("Starting...");
 
-  rotationManager.begin();
   displayManager.begin();
+  rotationManager.begin();
 
-  bool result = networkingManager.begin();
+  networkingManager.begin();
 }
 
 void loop()

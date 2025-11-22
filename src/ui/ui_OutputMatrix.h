@@ -14,6 +14,25 @@ extern "C" {
 extern void ui_OutputMatrix_screen_init(void);
 extern void ui_OutputMatrix_screen_destroy(void);
 extern lv_obj_t * ui_OutputMatrix;
+extern lv_obj_t * ui_OutputButtonContainer;
+extern lv_obj_t * ui_Strip1ButtonA1;
+extern lv_obj_t * ui_Label4;
+extern lv_obj_t * ui_Strip1ButtonA2;
+extern lv_obj_t * ui_Label1;
+extern lv_obj_t * ui_Strip1ButtonA3;
+extern lv_obj_t * ui_Label3;
+extern lv_obj_t * ui_Strip1ButtonA6;
+extern lv_obj_t * ui_Label5;
+extern lv_obj_t * ui_Strip1ButtonA8;
+extern lv_obj_t * ui_Label7;
+extern lv_obj_t * ui_Strip1ButtonA9;
+extern lv_obj_t * ui_Label8;
+extern lv_obj_t * ui_Strip1ButtonA10;
+extern lv_obj_t * ui_Label9;
+extern lv_obj_t * ui_Strip1ButtonA11;
+extern lv_obj_t * ui_Label10;
+extern lv_obj_t * ui_Strip1ButtonA12;
+extern lv_obj_t * ui_Label11;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

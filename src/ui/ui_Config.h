@@ -27,6 +27,7 @@ extern lv_obj_t * ui_Container4;
 extern void ui_event_BackButton(lv_event_t * e);
 extern lv_obj_t * ui_BackButton;
 extern lv_obj_t * ui_BackLabel;
+extern void ui_event_ResetButton(lv_event_t * e);
 extern lv_obj_t * ui_ResetButton;
 extern lv_obj_t * ui_ResetLabel;
 extern lv_obj_t * ui_Label6;

@@ -25,6 +25,17 @@ extern lv_obj_t * ui_MonitorArcL3;
 extern lv_obj_t * ui_MonitorArcR3;
 extern void ui_event_LabelArcLevel(lv_event_t * e);
 extern lv_obj_t * ui_LabelArcLevel;
+extern void ui_event_OutputButtonPreviewContainer(lv_event_t * e);
+extern lv_obj_t * ui_OutputButtonPreviewContainer;
+extern lv_obj_t * ui_Panel1;
+extern lv_obj_t * ui_Panel2;
+extern lv_obj_t * ui_Panel3;
+extern lv_obj_t * ui_Panel4;
+extern lv_obj_t * ui_Panel5;
+extern lv_obj_t * ui_Panel6;
+extern lv_obj_t * ui_Panel7;
+extern lv_obj_t * ui_Panel8;
+extern lv_obj_t * ui_Panel9;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus
