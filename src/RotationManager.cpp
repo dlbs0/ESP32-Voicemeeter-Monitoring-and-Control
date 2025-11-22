@@ -8,7 +8,7 @@ void IRAM_ATTR RotationManager::dataReadyISR()
         g_rotation_instance->dataReady = true;
 }
 
-RotationManager::RotationManager() : mlx(), arduinoHal(), lastAngle(0.0f), lastRotationTime(0), dataReady(false)
+RotationManager::RotationManager() : mlx(), arduinoHal(), lastAngle(-100.0f), lastRotationTime(0), dataReady(false)
 {
     arduinoHal.set_twoWire(&Wire1);
 }
@@ -48,12 +48,12 @@ float RotationManager::update()
             angle = angle * 180 / PI; // convert to degrees
             angle += 180;             // offset to 0-360 degrees
 
-            int arcAngle = angle - 90;
-            if (arcAngle < 0)
-                arcAngle += 360;
-
-            if (lastAngle == -100)
+            if (numStartupSamples <= 4) // discard first few samples to allow settling
+            {
                 lastAngle = angle;
+                numStartupSamples++;
+                return 0.0f;
+            }
 
             float angleDiff = angle - lastAngle;
             if (angleDiff > 180)
