@@ -15,6 +15,13 @@ lv_obj_t *DisplayManager::level_arcs_l[numVolumeArcs] = {nullptr};
 lv_obj_t *DisplayManager::level_arcs_r[numVolumeArcs] = {nullptr};
 lv_obj_t *DisplayManager::label_db = nullptr;
 
+struct CmdItem
+{
+    char payload[64];
+};
+static QueueHandle_t s_cmdQueue = nullptr;
+static TaskHandle_t s_displayTaskHandle = nullptr;
+
 DisplayManager::DisplayManager()
 {
     // ctor intentionally empty; static members are already defined above
@@ -48,6 +55,33 @@ void DisplayManager::begin()
             lv_indev_set_display(touch_indev, disp);
         }
     }
+
+    // Run the UI functionality in a dedicated task
+    if (!s_cmdQueue)
+        s_cmdQueue = xQueueCreate(16, sizeof(CmdItem)); // capacity 16
+    if (!s_displayTaskHandle)
+    {
+        xTaskCreatePinnedToCore(
+            [](void *pv)
+            {
+                // Task entry: run LVGL handler loop
+                DisplayManager *mgr = static_cast<DisplayManager *>(pv);
+                const TickType_t delay = pdMS_TO_TICKS(16); // ~60Hz
+                for (;;)
+                {
+                    // Only call LVGL APIs from this task
+                    mgr->update();
+                    vTaskDelay(delay);
+                }
+            },
+            "DisplayTask",
+            12288, // increased stack size from 4096 -> 12288 (12KB) to avoid stack overflow
+            this,
+            2, // priority
+            &s_displayTaskHandle,
+            1 // pinned to core 1 (tune as needed)
+        );
+    }
 }
 
 void DisplayManager::update()
@@ -74,26 +108,13 @@ void DisplayManager::update()
     {
         updateArcs();
         updateOutputButtons(true);
-        // Update dB label
-        int dbValue = getStripLevel(13 + selectedVolumeArc);
-        // Format dB into the persistent buffer and update the label only if text changed.
-        char tmp[16];
-        float db = convertLevelToDb(dbValue);
-        // Use snprintf for bounds-safety and consistent formatting
-        snprintf(tmp, sizeof(tmp), "%2.1fdB", db);
-        if (strcmp(tmp, dbLabelText) != 0)
-        {
-            strncpy(dbLabelText, tmp, sizeof(dbLabelText));
-            dbLabelText[sizeof(dbLabelText) - 1] = '\0';
-            lv_label_set_text_static(ui_LabelArcLevel, dbLabelText);
-        }
     }
     if (currentlyActiveScreen == ui_OutputMatrix)
     {
         updateOutputButtons(false);
     }
 
-    lv_timer_handler(); // Update the UI-
+    lv_timer_handler(); // Update the UI
 }
 
 void DisplayManager::showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet)
@@ -145,6 +166,20 @@ void DisplayManager::updateArcs()
         // lv_obj_set_style_arc_width(level_arcs_r[i], is_selected ? 9 : 5, LV_PART_MAIN);
         // lv_obj_set_style_arc_width(level_arcs_r[i], is_selected ? 9 : 5, LV_PART_INDICATOR);
         lv_obj_set_style_arc_color(level_arcs_r[i], lv_color_hex(is_selected ? 0x92FFC8 : 0x529070), LV_PART_INDICATOR);
+    }
+
+    // Update dB label
+    int dbValue = getStripLevel(13 + selectedVolumeArc);
+    // Format dB into the persistent buffer and update the label only if text changed.
+    char tmp[16];
+    float db = convertLevelToDb(dbValue);
+    // Use snprintf for bounds-safety and consistent formatting
+    snprintf(tmp, sizeof(tmp), "%2.1fdB", db);
+    if (strcmp(tmp, dbLabelText) != 0)
+    {
+        strncpy(dbLabelText, tmp, sizeof(dbLabelText));
+        dbLabelText[sizeof(dbLabelText) - 1] = '\0';
+        lv_label_set_text_static(ui_LabelArcLevel, dbLabelText);
     }
 }
 
@@ -419,14 +454,27 @@ void DisplayManager::lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
 
 void DisplayManager::sendCommandString(const String &command)
 {
-    issuedCommands.push_back(command);
+    if (!s_cmdQueue)
+    { /* fallback: ignore or use mutex */
+        return;
+    }
+    CmdItem item;
+    strncpy(item.payload, command.c_str(), sizeof(item.payload));
+    item.payload[sizeof(item.payload) - 1] = '\0';
+    xQueueSend(s_cmdQueue, &item, 0); // non-blocking; increase timeout if needed
 }
 
 std::vector<String> DisplayManager::getIssuedCommands()
 {
-    std::vector<String> temp = issuedCommands;
-    issuedCommands.clear();
-    return temp;
+    std::vector<String> out;
+    if (!s_cmdQueue)
+        return out;
+    CmdItem item;
+    while (xQueueReceive(s_cmdQueue, &item, 0) == pdTRUE)
+    {
+        out.emplace_back(item.payload);
+    }
+    return out;
 }
 
 // return number between 0 and 6000

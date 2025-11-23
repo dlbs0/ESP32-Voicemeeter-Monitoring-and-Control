@@ -42,7 +42,7 @@ void loop()
   currentRTPPacket = networkingManager.getCurrentPacket();
   displayManager.showLatestVoicemeeterData(currentRTPPacket);
 
-  displayManager.update();
+  // displayManager.update();
   auto currentScreen = displayManager.getCurrentScreen();
 
   float angleDiff = rotationManager.update();

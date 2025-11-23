@@ -28,7 +28,6 @@ class DisplayManager
 public:
     DisplayManager();
     void begin();
-    void update();
     static void setBrightness(uint8_t brightness, bool instant = false);
     void showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet);
     void setConnectionStatus(bool connected);
@@ -48,6 +47,7 @@ private:
     static short selectedVolumeArc;
     UiState currentScreen = LOADING;
     void setupLvglVaribleReferences();
+    void update();
     void updateArcs();
     void updateOutputButtons(bool previewButtons);
     short getStripLevel(byte channel);
