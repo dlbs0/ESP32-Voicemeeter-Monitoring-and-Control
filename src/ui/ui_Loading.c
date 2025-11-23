@@ -14,12 +14,20 @@ void ui_event_Loading(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
-    if(event_code == LV_EVENT_CLICKED) {
+    if(event_code == LV_EVENT_KEY) {
         _ui_screen_change(&ui_Monitor, LV_SCR_LOAD_ANIM_FADE_ON, 300, 700, &ui_Monitor_screen_init);
         ExpandingCircle_Animation(ui_Expanding_Green, 0);
         ExpandingCircle_Animation(ui_Expanding_Black, 300);
         _ui_flag_modify(ui_Expanding_Green, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
         _ui_flag_modify(ui_Expanding_Black, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+    }
+    if(event_code == LV_EVENT_SCREEN_LOADED) {
+        _ui_flag_modify(ui_Expanding_Green, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
+        _ui_flag_modify(ui_Expanding_Black, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
+        _ui_basic_set_property(ui_Expanding_Black, _UI_BASIC_PROPERTY_WIDTH,  0);
+        _ui_basic_set_property(ui_Expanding_Black, _UI_BASIC_PROPERTY_HEIGHT,  0);
+        _ui_basic_set_property(ui_Expanding_Green, _UI_BASIC_PROPERTY_HEIGHT,  0);
+        _ui_basic_set_property(ui_Expanding_Green, _UI_BASIC_PROPERTY_WIDTH,  0);
     }
 }
 

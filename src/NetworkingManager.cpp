@@ -37,6 +37,13 @@ void NetworkingManager::update()
         udp.writeTo(rtp_packet.data(), rtp_packet.size(), DEST_IP, LOCAL_PORT);
         lastRTPRequestTime = millis();
     }
+    if ((millis() - lastPacketTime > 5000) || (WiFi.status() != WL_CONNECTED))
+    {
+        // haven't received data for a while, consider ourselves disconnected
+        connected = false;
+    }
+    else
+        connected = true;
 }
 
 void NetworkingManager::handleUDPPacket(AsyncUDPPacket packet)

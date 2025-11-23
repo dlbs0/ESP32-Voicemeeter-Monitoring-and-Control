@@ -11,7 +11,7 @@ public:
     NetworkingManager();
     bool begin();
     void update();
-    bool isConnected() const { return connected && lastPacketTime > 0 && (millis() - lastPacketTime) < 5000; }
+    bool isConnected() const { return connected; }
     const tagVBAN_VMRT_PACKET &getCurrentPacket() const { return currentRTPPacket; }
     void sendCommand(const String &command);
     void incrementVolume(uint8_t channel, bool up);

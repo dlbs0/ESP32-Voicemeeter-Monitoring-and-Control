@@ -86,16 +86,37 @@ void DisplayManager::begin()
 
 void DisplayManager::update()
 {
+    // FPS logging
+    static unsigned long fpsLastMs = 0;
+    static uint32_t fpsFrameCount = 0;
+    fpsFrameCount++;
+    unsigned long now = millis();
+    if (now - fpsLastMs >= 1000)
+    {
+        Serial.print("Display FPS: ");
+        Serial.println(fpsFrameCount);
+        fpsFrameCount = 0;
+        fpsLastMs = now;
+    }
+
     auto currentlyActiveScreen = lv_disp_get_scr_act(lv_display_get_default());
 
+    // Choose a screen to display
     if (!connectionStatus)
     {
         if (currentlyActiveScreen != ui_Loading)
+        {
             lv_scr_load(ui_Loading);
+        }
         currentScreen = DISCONNECTED;
     }
     else if (currentlyActiveScreen != ui_OutputMatrix && currentlyActiveScreen != ui_Config) // should be outputs
     {
+        // if (currentlyActiveScreen == ui_Loading)
+        // {
+        //     lv_obj_send_event(ui_Loading, LV_EVENT_KEY, NULL);
+        // }
+        // else
         lv_scr_load(ui_Monitor);
         currentScreen = MONITOR;
     }
@@ -104,6 +125,7 @@ void DisplayManager::update()
         currentScreen = OUTPUTS;
     }
 
+    // Depending on chosen screen, update relevant elements
     if (currentlyActiveScreen == ui_Monitor)
     {
         updateArcs();
@@ -117,15 +139,6 @@ void DisplayManager::update()
     lv_timer_handler(); // Update the UI
 }
 
-void DisplayManager::showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet)
-{
-    latestVoicemeeterData = packet;
-}
-void ::DisplayManager::setConnectionStatus(bool connected)
-{
-
-    connectionStatus = connected;
-}
 void DisplayManager::updateArcs()
 {
     short outputLevels[numVolumeArcs * 2] = {getOutputLevel(10), getOutputLevel(11), getOutputLevel(18), getOutputLevel(19), getOutputLevel(26), getOutputLevel(27)};
@@ -239,6 +252,16 @@ void DisplayManager::setupLvglVaribleReferences()
     lv_obj_add_event_cb(ui_Monitor, ui_event_Monitor_Gesture, LV_EVENT_GESTURE, NULL);
     lv_obj_add_event_cb(ui_MonitorIncrementSelectedChannel, ui_event_Monitor_Gesture, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_MonitorDecrementSelectedChannel, ui_event_Monitor_Gesture, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_add_event_cb(ui_ResetButton, [](lv_event_t *e)
+                        {
+                            lv_event_code_t event_code = lv_event_get_code(e);
+                            if (event_code == LV_EVENT_CLICKED)
+                            {
+                                Serial.println("Reset button clicked, restarting...");
+                                delay(500);
+                                ESP.restart();
+                            } }, LV_EVENT_CLICKED, NULL);
 }
 
 void DisplayManager::ui_event_Monitor_Gesture(lv_event_t *e)
@@ -321,22 +344,8 @@ void DisplayManager::output_btn_event_cb(lv_event_t *e)
     String commandString = "Strip[" + String(5 + busIdx) + "].A" + String(outIdx + 1) + " = " + String(newState);
     Serial.println(commandString);
     self->sendCommandString(commandString);
-
-    // update pending on the instance
-    // self->pendingButtonGridState[busIdx * numOutputs + outIdx].isPending = true;
-    // self->pendingButtonGridState[busIdx * numOutputs + outIdx].pendingState = newState;
-    // self->pendingButtonGridState[busIdx * numOutputs + outIdx].pendingTime = millis();
 }
 
-/* LVGL input device read callback and helper state
-   This reads the CST816S touch driver and reports pointer coordinates
-   and press/release state to LVGL. Coordinates are converted to the
-   same orientation used elsewhere (TFTSIZE - x/y). */
-static bool g_touch_pressed = false;
-static int g_touch_x = 0;
-static int g_touch_y = 0;
-bool inTouchPeriod = false;
-int touchPeriodStartPoint[2];
 // Wrapper with generic pointers to avoid parser issues with forward typedefs in some toolchains.
 void DisplayManager::lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
 {
@@ -344,112 +353,34 @@ void DisplayManager::lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
     // Poll hardware when available and update cached values
     if (touch.available())
     {
-        // bool isFingerDown = touch.data.points;
-        // if (isFingerDown && !inTouchPeriod)
-        // {
-        //     inTouchPeriod = true;
-        //     touchPeriodStartPoint[0] = touch.data.x;
-        //     touchPeriodStartPoint[1] = touch.data.y;
-        // }
         byte gestureId = touch.data.gestureID;
-        // if (touch.data.points == 0 && touch.data.event == 1 && gestureId == NONE)
-        // {
-        //     // user took their finger off, but system didn't detect a gesture
-        //     // Try and detect some more single clicks here
-        //     inTouchPeriod = false;
-        //     // Serial.println("In last resort touch func");
-
-        //     // get the distance from the start of the period to where we are now.
-        //     int dx = touchPeriodStartPoint[0] - touch.data.x;
-        //     int dy = touchPeriodStartPoint[1] - touch.data.y;
-        //     int distance = sqrt(dx * dx + dy * dy);
-        //     if (distance < 10)
-        //         gestureId = SINGLE_CLICK;
-        // }
-
-        // if (gestureId != SINGLE_CLICK && millis() - lastTouchTime < 100) // slow down the repeated gestures
-        //     return;
-        // else
         lastTouchTime = millis();
 
-        g_touch_pressed = (touch.data.points > 0);
-        g_touch_x = touch.data.x;
-        g_touch_y = touch.data.y;
+        data->point.x = touch.data.x;
+        data->point.y = touch.data.y;
+        data->state = (touch.data.points > 0) ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
 
-        // if (gestureId != NONE)
-        // {
-        //     auto currentlyActiveScreen = lv_disp_get_scr_act(lv_display_get_default());
-
-        //     // lastTouchTime = millis();
-        //     switch (gestureId)
-        //     {
-
-        //         // case SWIPE_DOWN:
-        //         //   if (currentPage == MONITOR)
-        //         //     incrementVolume(selectedVolumeArc, false);
-        //         //   break;
-        //         // case SWIPE_UP:
-        //         //   if (currentPage == MONITOR)
-        //         //     incrementVolume(selectedVolumeArc, true);
-        //         //   break;
-
-        //     case SWIPE_RIGHT:
-        //         if (currentlyActiveScreen == ui_Monitor)
-        //         {
-        //             if (selectedVolumeArc == 0)
-        //                 selectedVolumeArc = numVolumeArcs - 1;
-        //             else
-        //                 selectedVolumeArc--;
-        //         }
-        //         break;
-        //     case SWIPE_LEFT:
-        //         if (currentlyActiveScreen == ui_OutputMatrix)
-        //             lv_scr_load(ui_Monitor);
-        //         else if (currentlyActiveScreen == ui_Monitor)
-        //         {
-        //             if (selectedVolumeArc == numVolumeArcs - 1)
-        //                 selectedVolumeArc = 0;
-        //             else
-        //                 selectedVolumeArc++;
-        //         }
-        //         break;
-
-        //     // case SINGLE_CLICK:
-        //     //   if (currentPage == MONITOR)
-        //     //     currentPage = OUTPUTS;
-        //     //   else if (currentPage == OUTPUTS)
-        //     //     handleButtonTouches(touch.data.x, touch.data.y);
-        //     //   break;
-        //     case DOUBLE_CLICK:
-        //         break;
-        //     case LONG_PRESS:
-        //         Serial.println("Long press detected");
-        //         // lv_scr_load(ui_Config);
-
-        //         // delay(500);
-        //         // ESP.restart();
-        //         break;
-        //     default:
-        //         break;
-        //     }
-        // }
-        // if (gestureId == NONE)
-        // {
-        data->point.x = g_touch_x;
-        data->point.y = g_touch_y;
-        data->state = g_touch_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
-        // }
-
-        Serial.print(touch.gesture());
-        Serial.print("\t");
-        Serial.print(touch.data.points);
-        Serial.print("\t");
-        Serial.print(touch.data.event);
-        Serial.print("\t");
-        Serial.print(touch.data.x);
-        Serial.print("\t");
-        Serial.println(touch.data.y);
+        // Serial.print(touch.gesture());
+        // Serial.print("\t");
+        // Serial.print(touch.data.points);
+        // Serial.print("\t");
+        // Serial.print(touch.data.event);
+        // Serial.print("\t");
+        // Serial.print(touch.data.x);
+        // Serial.print("\t");
+        // Serial.println(touch.data.y);
     }
+}
+
+void DisplayManager::showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet)
+{
+    latestVoicemeeterData = packet;
+}
+
+void ::DisplayManager::setConnectionStatus(bool connected)
+{
+
+    connectionStatus = connected;
 }
 
 void DisplayManager::sendCommandString(const String &command)
