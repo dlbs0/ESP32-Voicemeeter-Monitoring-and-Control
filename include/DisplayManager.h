@@ -77,7 +77,7 @@ private:
 
     static void lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data);
     static void output_btn_event_cb(lv_event_t *e);
-    static void ui_event_Monitor_Gesture(lv_event_t *e);
+    static void ui_event_Monitor_Callback(lv_event_t *e);
     static bool find_output_button(lv_obj_t *btn, int &busIdx, int &outIdx);
 
     std::vector<String> issuedCommands;

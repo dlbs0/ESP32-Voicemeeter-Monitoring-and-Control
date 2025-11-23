@@ -43,7 +43,9 @@ void DisplayManager::begin()
     setupLvglVaribleReferences();
 
     touch.begin();
-    setBrightness(255, true); // start at full brightness
+    lv_timer_handler(); // Update the UI
+
+    setBrightness(255, false); // start at full brightness
 
     // Register LVGL input device for the CST816S touchscreen (LVGL v9 API)
     {
@@ -86,7 +88,7 @@ void DisplayManager::begin()
 
 void DisplayManager::update()
 {
-    // FPS logging
+    // FPS logging (optional)
     static unsigned long fpsLastMs = 0;
     static uint32_t fpsFrameCount = 0;
     fpsFrameCount++;
@@ -98,26 +100,28 @@ void DisplayManager::update()
         fpsFrameCount = 0;
         fpsLastMs = now;
     }
+    setBrightness(255, false);
 
+    // static lv_obj_t *lastLoadedScreen = nullptr;
     auto currentlyActiveScreen = lv_disp_get_scr_act(lv_display_get_default());
 
-    // Choose a screen to display
+    // Choose a screen to display; only call lv_scr_load when target differs from current
     if (!connectionStatus)
     {
         if (currentlyActiveScreen != ui_Loading)
         {
-            lv_scr_load(ui_Loading);
+            lv_scr_load(ui_Loading); // create+load once
         }
         currentScreen = DISCONNECTED;
     }
-    else if (currentlyActiveScreen != ui_OutputMatrix && currentlyActiveScreen != ui_Config) // should be outputs
+    else if (currentlyActiveScreen != ui_OutputMatrix && currentlyActiveScreen != ui_Config)
     {
-        // if (currentlyActiveScreen == ui_Loading)
-        // {
-        //     lv_obj_send_event(ui_Loading, LV_EVENT_KEY, NULL);
-        // }
-        // else
-        lv_scr_load(ui_Monitor);
+        if (currentlyActiveScreen == ui_Loading)
+        {
+            lv_obj_send_event(ui_Loading, LV_EVENT_KEY, NULL); // this will load the monitor screen with animation
+        }
+        else if (currentlyActiveScreen != ui_Monitor)
+            lv_scr_load(ui_Monitor); // expensive call
         currentScreen = MONITOR;
     }
     else if (currentlyActiveScreen == ui_OutputMatrix)
@@ -131,7 +135,7 @@ void DisplayManager::update()
         updateArcs();
         updateOutputButtons(true);
     }
-    if (currentlyActiveScreen == ui_OutputMatrix)
+    else if (currentlyActiveScreen == ui_OutputMatrix)
     {
         updateOutputButtons(false);
     }
@@ -141,45 +145,47 @@ void DisplayManager::update()
 
 void DisplayManager::updateArcs()
 {
+    static int lastStripValue[numVolumeArcs] = {-1, -1, -1};
+    static int lastLevelL[numVolumeArcs] = {-1, -1, -1};
+    static int lastLevelR[numVolumeArcs] = {-1, -1, -1};
+    static int lastSelectedArc = -1;
+
     short outputLevels[numVolumeArcs * 2] = {getOutputLevel(10), getOutputLevel(11), getOutputLevel(18), getOutputLevel(19), getOutputLevel(26), getOutputLevel(27)};
 
-    // short offset = 0;
-    // Monitor screen layout: Create arc sets
     for (int i = 0; i < numVolumeArcs; ++i)
     {
-        bool is_selected = (i == selectedVolumeArc);
-        // int base_radius = TFTSIZE / 2; // Base radius for the largest arc set
-        // const short borderWidth = 2;
-        // int radius = base_radius - offset;
-        // if (is_selected)
-        //     offset += 18;
-        // else
-        //     offset += 10;
-        // offset += borderWidth;
+        int stripVal = getStripLevel(13 + i);
+        if (stripVal != lastStripValue[i])
+        {
+            lv_arc_set_value(strip_arcs[i], stripVal);
+            lastStripValue[i] = stripVal;
+        }
 
-        // lv_arc_set_value(ui_LevelArc1, (getStripLevel(13)));
+        int valL = (outputLevels[i * 2] * stripVal / dbMinOffset);
+        if (valL != lastLevelL[i])
+        {
+            lv_arc_set_value(level_arcs_l[i], valL);
+            lastLevelL[i] = valL;
+        }
 
-        // lv_obj_set_size(strip_arcs[i], radius * 2, radius * 2);
-        lv_arc_set_value(strip_arcs[i], (getStripLevel(13 + i)));
-        // lv_obj_set_style_arc_width(strip_arcs[i], is_selected ? 18 : 10, LV_PART_MAIN);
-        // lv_obj_set_style_arc_width(strip_arcs[i], is_selected ? 18 : 10, LV_PART_INDICATOR);
-        // lv_style_set_arc_color(&style_arc_indicator, lv_color_hex(is_selected ? 0x70c399 : 0x5549));
-        lv_obj_set_style_arc_color(strip_arcs[i], lv_color_hex(is_selected ? 0x70C399 : 0x44765C), LV_PART_INDICATOR);
+        int valR = (outputLevels[i * 2 + 1] * stripVal / dbMinOffset);
+        if (valR != lastLevelR[i])
+        {
+            lv_arc_set_value(level_arcs_r[i], valR);
+            lastLevelR[i] = valR;
+        }
 
-        // Left monitor level arc (slightly larger than main)
-        // lv_obj_set_size(level_arcs_l[i], (radius) * 2, (radius) * 2);
-        lv_arc_set_value(level_arcs_l[i], (outputLevels[i * 2] * getStripLevel(13 + i) / dbMinOffset));
-        // lv_obj_set_style_arc_width(level_arcs_l[i], is_selected ? 9 : 5, LV_PART_MAIN);
-        // lv_obj_set_style_arc_width(level_arcs_l[i], is_selected ? 9 : 5, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_color(level_arcs_l[i], lv_color_hex(is_selected ? 0x92FFC8 : 0x529070), LV_PART_INDICATOR);
+        // Only adjust colors/styles if selection changed
+        if (selectedVolumeArc != lastSelectedArc)
+        {
+            bool is_selected = i == selectedVolumeArc;
 
-        // Right monitor level arc (slightly smaller than main)
-        // lv_obj_set_size(level_arcs_r[i], (radius - (is_selected ? 9 : 5)) * 2, (radius - (is_selected ? 9 : 5)) * 2);
-        lv_arc_set_value(level_arcs_r[i], (outputLevels[i * 2 + 1] * getStripLevel(13 + i) / dbMinOffset));
-        // lv_obj_set_style_arc_width(level_arcs_r[i], is_selected ? 9 : 5, LV_PART_MAIN);
-        // lv_obj_set_style_arc_width(level_arcs_r[i], is_selected ? 9 : 5, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_color(level_arcs_r[i], lv_color_hex(is_selected ? 0x92FFC8 : 0x529070), LV_PART_INDICATOR);
+            lv_obj_set_style_arc_color(strip_arcs[i], lv_color_hex(is_selected ? 0x70C399 : 0x44765C), LV_PART_INDICATOR);
+            lv_obj_set_style_arc_color(level_arcs_l[i], lv_color_hex(is_selected ? 0x92FFC8 : 0x529070), LV_PART_INDICATOR);
+            lv_obj_set_style_arc_color(level_arcs_r[i], lv_color_hex(is_selected ? 0x92FFC8 : 0x529070), LV_PART_INDICATOR);
+        }
     }
+    lastSelectedArc = selectedVolumeArc;
 
     // Update dB label
     int dbValue = getStripLevel(13 + selectedVolumeArc);
@@ -236,7 +242,6 @@ void DisplayManager::setupLvglVaribleReferences()
     level_arcs_r[0] = ui_MonitorArcR1;
     level_arcs_r[1] = ui_MonitorArcR2;
     level_arcs_r[2] = ui_MonitorArcR3;
-    Serial.println("LVGL initialized");
 
     // get the button container
     auto btnContainer = ui_OutputButtonContainer;
@@ -249,9 +254,9 @@ void DisplayManager::setupLvglVaribleReferences()
         lv_obj_add_event_cb(btn, output_btn_event_cb, LV_EVENT_CLICKED, this);
     }
 
-    lv_obj_add_event_cb(ui_Monitor, ui_event_Monitor_Gesture, LV_EVENT_GESTURE, NULL);
-    lv_obj_add_event_cb(ui_MonitorIncrementSelectedChannel, ui_event_Monitor_Gesture, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_MonitorDecrementSelectedChannel, ui_event_Monitor_Gesture, LV_EVENT_CLICKED, NULL);
+    // lv_obj_add_event_cb(ui_Monitor, ui_event_Monitor_Callback, LV_EVENT_GESTURE, NULL);
+    lv_obj_add_event_cb(ui_MonitorIncrementSelectedChannel, ui_event_Monitor_Callback, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_MonitorDecrementSelectedChannel, ui_event_Monitor_Callback, LV_EVENT_CLICKED, NULL);
 
     lv_obj_add_event_cb(ui_ResetButton, [](lv_event_t *e)
                         {
@@ -262,26 +267,29 @@ void DisplayManager::setupLvglVaribleReferences()
                                 delay(500);
                                 ESP.restart();
                             } }, LV_EVENT_CLICKED, NULL);
+
+    Serial.println("LVGL initialized");
 }
 
-void DisplayManager::ui_event_Monitor_Gesture(lv_event_t *e)
+void DisplayManager::ui_event_Monitor_Callback(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
-    if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_RIGHT)
-    {
-        selectedVolumeArc++;
-        if (selectedVolumeArc >= numVolumeArcs)
-            selectedVolumeArc = 0;
-    }
-    else if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_LEFT)
-    {
-        if (selectedVolumeArc == 0)
-            selectedVolumeArc = numVolumeArcs - 1;
-        else
-            selectedVolumeArc--;
-    }
+    // if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_RIGHT)
+    // {
+    //     selectedVolumeArc++;
+    //     if (selectedVolumeArc >= numVolumeArcs)
+    //         selectedVolumeArc = 0;
+    // }
+    // else if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_LEFT)
+    // {
+    //     if (selectedVolumeArc == 0)
+    //         selectedVolumeArc = numVolumeArcs - 1;
+    //     else
+    //         selectedVolumeArc--;
+    // }
 
+    // handle invisible buttons for increment/decrement on monitor screen
     if (event_code == LV_EVENT_CLICKED)
     {
         lv_obj_t *target = (lv_obj_t *)lv_event_get_target(e);

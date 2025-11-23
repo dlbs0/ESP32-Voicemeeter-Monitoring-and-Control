@@ -24,7 +24,7 @@ void setup()
   digitalWrite(45, HIGH); // enable peripheral power
   pinMode(0, OUTPUT);
   digitalWrite(0, HIGH); // something something reset
-  delay(4000);
+  // delay(4000);
   Serial.begin(115200);
   Serial.println("Starting...");
 
