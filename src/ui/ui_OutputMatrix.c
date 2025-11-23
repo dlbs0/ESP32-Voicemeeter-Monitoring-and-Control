@@ -26,6 +26,15 @@ lv_obj_t * ui_Label10 = NULL;
 lv_obj_t * ui_Strip1ButtonA12 = NULL;
 lv_obj_t * ui_Label11 = NULL;
 // event funtions
+void ui_event_OutputMatrix(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_BOTTOM) {
+        lv_indev_wait_release(lv_indev_active());
+        _ui_screen_change(&ui_Monitor, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 300, 0, &ui_Monitor_screen_init);
+    }
+}
 
 // build funtions
 
@@ -270,6 +279,8 @@ void ui_OutputMatrix_screen_init(void)
     lv_obj_set_align(ui_Label11, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label11, "A3");
     lv_obj_set_style_text_font(ui_Label11, &lv_font_montserrat_20, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    lv_obj_add_event_cb(ui_OutputMatrix, ui_event_OutputMatrix, LV_EVENT_ALL, NULL);
 
 }
 

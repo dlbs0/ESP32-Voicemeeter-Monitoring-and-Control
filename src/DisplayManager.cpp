@@ -200,6 +200,47 @@ void DisplayManager::setupLvglVaribleReferences()
         auto btn = lv_obj_get_child(btnContainer, i);
         lv_obj_add_event_cb(btn, output_btn_event_cb, LV_EVENT_CLICKED, this);
     }
+
+    lv_obj_add_event_cb(ui_Monitor, ui_event_Monitor_Gesture, LV_EVENT_GESTURE, NULL);
+    lv_obj_add_event_cb(ui_MonitorIncrementSelectedChannel, ui_event_Monitor_Gesture, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_MonitorDecrementSelectedChannel, ui_event_Monitor_Gesture, LV_EVENT_CLICKED, NULL);
+}
+
+void DisplayManager::ui_event_Monitor_Gesture(lv_event_t *e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_RIGHT)
+    {
+        selectedVolumeArc++;
+        if (selectedVolumeArc >= numVolumeArcs)
+            selectedVolumeArc = 0;
+    }
+    else if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_LEFT)
+    {
+        if (selectedVolumeArc == 0)
+            selectedVolumeArc = numVolumeArcs - 1;
+        else
+            selectedVolumeArc--;
+    }
+
+    if (event_code == LV_EVENT_CLICKED)
+    {
+        lv_obj_t *target = (lv_obj_t *)lv_event_get_target(e);
+        if (target == ui_MonitorIncrementSelectedChannel)
+        {
+            selectedVolumeArc++;
+            if (selectedVolumeArc >= numVolumeArcs)
+                selectedVolumeArc = 0;
+        }
+        else if (target == ui_MonitorDecrementSelectedChannel)
+        {
+            if (selectedVolumeArc == 0)
+                selectedVolumeArc = numVolumeArcs - 1;
+            else
+                selectedVolumeArc--;
+        }
+    }
 }
 
 // Helper to find a button index from object pointer
@@ -268,7 +309,7 @@ void DisplayManager::lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
     // Poll hardware when available and update cached values
     if (touch.available())
     {
-        bool isFingerDown = touch.data.points;
+        // bool isFingerDown = touch.data.points;
         // if (isFingerDown && !inTouchPeriod)
         // {
         //     inTouchPeriod = true;
@@ -291,78 +332,78 @@ void DisplayManager::lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
         //         gestureId = SINGLE_CLICK;
         // }
 
-        if (gestureId != SINGLE_CLICK && millis() - lastTouchTime < 100) // slow down the repeated gestures
-            return;
-        else
-            lastTouchTime = millis();
+        // if (gestureId != SINGLE_CLICK && millis() - lastTouchTime < 100) // slow down the repeated gestures
+        //     return;
+        // else
+        lastTouchTime = millis();
 
         g_touch_pressed = (touch.data.points > 0);
         g_touch_x = touch.data.x;
         g_touch_y = touch.data.y;
 
-        if (gestureId != NONE)
-        {
-            auto currentlyActiveScreen = lv_disp_get_scr_act(lv_display_get_default());
+        // if (gestureId != NONE)
+        // {
+        //     auto currentlyActiveScreen = lv_disp_get_scr_act(lv_display_get_default());
 
-            // lastTouchTime = millis();
-            switch (gestureId)
-            {
+        //     // lastTouchTime = millis();
+        //     switch (gestureId)
+        //     {
 
-                // case SWIPE_DOWN:
-                //   if (currentPage == MONITOR)
-                //     incrementVolume(selectedVolumeArc, false);
-                //   break;
-                // case SWIPE_UP:
-                //   if (currentPage == MONITOR)
-                //     incrementVolume(selectedVolumeArc, true);
-                //   break;
+        //         // case SWIPE_DOWN:
+        //         //   if (currentPage == MONITOR)
+        //         //     incrementVolume(selectedVolumeArc, false);
+        //         //   break;
+        //         // case SWIPE_UP:
+        //         //   if (currentPage == MONITOR)
+        //         //     incrementVolume(selectedVolumeArc, true);
+        //         //   break;
 
-            case SWIPE_RIGHT:
-                if (currentlyActiveScreen == ui_Monitor)
-                {
-                    if (selectedVolumeArc == 0)
-                        selectedVolumeArc = numVolumeArcs - 1;
-                    else
-                        selectedVolumeArc--;
-                }
-                break;
-            case SWIPE_LEFT:
-                if (currentlyActiveScreen == ui_OutputMatrix)
-                    lv_scr_load(ui_Monitor);
-                else if (currentlyActiveScreen == ui_Monitor)
-                {
-                    if (selectedVolumeArc == numVolumeArcs - 1)
-                        selectedVolumeArc = 0;
-                    else
-                        selectedVolumeArc++;
-                }
-                break;
+        //     case SWIPE_RIGHT:
+        //         if (currentlyActiveScreen == ui_Monitor)
+        //         {
+        //             if (selectedVolumeArc == 0)
+        //                 selectedVolumeArc = numVolumeArcs - 1;
+        //             else
+        //                 selectedVolumeArc--;
+        //         }
+        //         break;
+        //     case SWIPE_LEFT:
+        //         if (currentlyActiveScreen == ui_OutputMatrix)
+        //             lv_scr_load(ui_Monitor);
+        //         else if (currentlyActiveScreen == ui_Monitor)
+        //         {
+        //             if (selectedVolumeArc == numVolumeArcs - 1)
+        //                 selectedVolumeArc = 0;
+        //             else
+        //                 selectedVolumeArc++;
+        //         }
+        //         break;
 
-            // case SINGLE_CLICK:
-            //   if (currentPage == MONITOR)
-            //     currentPage = OUTPUTS;
-            //   else if (currentPage == OUTPUTS)
-            //     handleButtonTouches(touch.data.x, touch.data.y);
-            //   break;
-            case DOUBLE_CLICK:
-                break;
-            case LONG_PRESS:
-                Serial.println("Long press detected");
-                // lv_scr_load(ui_Config);
+        //     // case SINGLE_CLICK:
+        //     //   if (currentPage == MONITOR)
+        //     //     currentPage = OUTPUTS;
+        //     //   else if (currentPage == OUTPUTS)
+        //     //     handleButtonTouches(touch.data.x, touch.data.y);
+        //     //   break;
+        //     case DOUBLE_CLICK:
+        //         break;
+        //     case LONG_PRESS:
+        //         Serial.println("Long press detected");
+        //         // lv_scr_load(ui_Config);
 
-                // delay(500);
-                // ESP.restart();
-                break;
-            default:
-                break;
-            }
-        }
-        if (gestureId == NONE)
-        {
-            data->point.x = g_touch_x;
-            data->point.y = g_touch_y;
-            data->state = g_touch_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
-        }
+        //         // delay(500);
+        //         // ESP.restart();
+        //         break;
+        //     default:
+        //         break;
+        //     }
+        // }
+        // if (gestureId == NONE)
+        // {
+        data->point.x = g_touch_x;
+        data->point.y = g_touch_y;
+        data->state = g_touch_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+        // }
 
         Serial.print(touch.gesture());
         Serial.print("\t");

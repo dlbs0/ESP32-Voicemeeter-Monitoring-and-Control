@@ -13,6 +13,7 @@ extern "C" {
 // SCREEN: ui_Monitor
 extern void ui_Monitor_screen_init(void);
 extern void ui_Monitor_screen_destroy(void);
+extern void ui_event_Monitor(lv_event_t * e);
 extern lv_obj_t * ui_Monitor;
 extern lv_obj_t * ui_LevelArc1;
 extern lv_obj_t * ui_LevelArc2;
@@ -36,6 +37,8 @@ extern lv_obj_t * ui_Panel6;
 extern lv_obj_t * ui_Panel7;
 extern lv_obj_t * ui_Panel8;
 extern lv_obj_t * ui_Panel9;
+extern lv_obj_t * ui_MonitorDecrementSelectedChannel;
+extern lv_obj_t * ui_MonitorIncrementSelectedChannel;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

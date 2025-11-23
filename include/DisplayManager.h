@@ -56,7 +56,8 @@ private:
     float convertLevelToDb(int level);
     static bool getStripOutputEnabled(byte stripNo, byte outputNo);
 
-    uint8_t lv_buffer[BUF_SIZE];
+    // initialse the buffer with all zeros
+    uint8_t lv_buffer[BUF_SIZE] = {0};
 
     /* LVGL UI objects */
     // static lv_obj_t *screen_monitor;
@@ -83,6 +84,7 @@ private:
 
     static void lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data);
     static void output_btn_event_cb(lv_event_t *e);
+    static void ui_event_Monitor_Gesture(lv_event_t *e);
     static bool find_output_button(lv_obj_t *btn, int &busIdx, int &outIdx);
 
     std::vector<String> issuedCommands;

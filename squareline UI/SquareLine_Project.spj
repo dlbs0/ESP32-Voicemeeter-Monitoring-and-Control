@@ -5622,6 +5622,82 @@
             "strtype": "SCREEN/Style_scrollbar",
             "strval": "lv.PART.SCROLLBAR, Rectangle, Pad",
             "InheritedType": 11
+          },
+          {
+            "disabled": false,
+            "nid": 1000647,
+            "strtype": "_event/EventHandler",
+            "strval": "GESTURE_UP(GESTURE)",
+            "childs": [
+              {
+                "nid": 1000648,
+                "strtype": "_event/name",
+                "strval": "Event5",
+                "InheritedType": 10
+              },
+              {
+                "nid": 1000649,
+                "strtype": "_event/condition_C",
+                "strval": "",
+                "InheritedType": 10
+              },
+              {
+                "nid": 1000650,
+                "strtype": "_event/condition_P",
+                "strval": "",
+                "InheritedType": 10
+              },
+              {
+                "nid": 1000651,
+                "strtype": "_event/action",
+                "strval": "CHANGE SCREEN",
+                "childs": [
+                  {
+                    "nid": 1000652,
+                    "strtype": "CHANGE SCREEN/Name",
+                    "strval": "CHANGE SCREEN",
+                    "InheritedType": 10
+                  },
+                  {
+                    "nid": 1000653,
+                    "strtype": "CHANGE SCREEN/Call",
+                    "strval": "ChangeScreen( <{Screen_to}>, lv.SCR_LOAD_ANIM.<{Fade_mode}>, <{Speed}>, <{Delay}>)",
+                    "InheritedType": 10
+                  },
+                  {
+                    "nid": 1000654,
+                    "strtype": "CHANGE SCREEN/CallC",
+                    "strval": "_ui_screen_change( &<{Screen_to}>, LV_SCR_LOAD_ANIM_<{Fade_mode}>, <{Speed}>, <{Delay}>, &<{Screen_to}>_screen_init);",
+                    "InheritedType": 10
+                  },
+                  {
+                    "nid": 1000655,
+                    "strtype": "CHANGE SCREEN/Screen_to",
+                    "strval": "GUID190373-635213S8394324",
+                    "InheritedType": 9
+                  },
+                  {
+                    "nid": 1000656,
+                    "strtype": "CHANGE SCREEN/Fade_mode",
+                    "strval": "MOVE_TOP",
+                    "InheritedType": 3
+                  },
+                  {
+                    "nid": 1000657,
+                    "strtype": "CHANGE SCREEN/Speed",
+                    "integer": 500,
+                    "InheritedType": 6
+                  },
+                  {
+                    "nid": 1000658,
+                    "strtype": "CHANGE SCREEN/Delay",
+                    "InheritedType": 6
+                  }
+                ],
+                "InheritedType": 10
+              }
+            ],
+            "InheritedType": 4
           }
         ],
         "saved_objtypeKey": "SCREEN"
@@ -11515,7 +11591,7 @@
             "disabled": false,
             "nid": 1000635,
             "strtype": "_event/EventHandler",
-            "strval": "GESTURE_RIGHT(GESTURE)",
+            "strval": "GESTURE_DOWN(GESTURE)",
             "childs": [
               {
                 "nid": 1000636,
@@ -11567,7 +11643,7 @@
                   {
                     "nid": 1000644,
                     "strtype": "CHANGE SCREEN/Fade_mode",
-                    "strval": "FADE_ON",
+                    "strval": "MOVE_BOTTOM",
                     "InheritedType": 3
                   },
                   {
@@ -11578,198 +11654,6 @@
                   },
                   {
                     "nid": 1000646,
-                    "strtype": "CHANGE SCREEN/Delay",
-                    "InheritedType": 6
-                  }
-                ],
-                "InheritedType": 10
-              }
-            ],
-            "InheritedType": 4
-          }
-        ],
-        "saved_objtypeKey": "SCREEN"
-      },
-      {
-        "guid": "GUID47887042-361041S6784326",
-        "deepid": 830349869,
-        "isPage": true,
-        "editor_posx": 885,
-        "editor_posy": -300,
-        "dont_export": false,
-        "locked": false,
-        "properties": [
-          {
-            "nid": 10,
-            "strtype": "OBJECT/Name",
-            "strval": "Screen1",
-            "InheritedType": 10
-          },
-          {
-            "nid": 20,
-            "strtype": "OBJECT/Layout",
-            "InheritedType": 1
-          },
-          {
-            "Flow": 0,
-            "Wrap": false,
-            "Reversed": false,
-            "MainAlignment": 0,
-            "CrossAlignment": 0,
-            "TrackAlignment": 0,
-            "LayoutType": 0,
-            "nid": 30,
-            "strtype": "OBJECT/Layout_type",
-            "strval": "No_layout",
-            "InheritedType": 13
-          },
-          {
-            "nid": 40,
-            "strtype": "OBJECT/Transform",
-            "InheritedType": 1
-          },
-          {
-            "nid": 90,
-            "flags": 1048576,
-            "strtype": "OBJECT/Flags",
-            "InheritedType": 1
-          },
-          {
-            "nid": 225,
-            "flags": 1048576,
-            "strtype": "OBJECT/Scrolling",
-            "InheritedType": 1
-          },
-          {
-            "nid": 230,
-            "strtype": "OBJECT/Scrollable",
-            "strval": "False",
-            "InheritedType": 2
-          },
-          {
-            "nid": 300,
-            "strtype": "OBJECT/Scrollbar_mode",
-            "strval": "AUTO",
-            "InheritedType": 3
-          },
-          {
-            "nid": 310,
-            "strtype": "OBJECT/Scroll_direction",
-            "strval": "ALL",
-            "InheritedType": 3
-          },
-          {
-            "nid": 314,
-            "strtype": "OBJECT/Scroll_snap_x",
-            "strval": "NONE",
-            "InheritedType": 3
-          },
-          {
-            "nid": 315,
-            "strtype": "OBJECT/Scroll_snap_y",
-            "strval": "NONE",
-            "InheritedType": 3
-          },
-          {
-            "nid": 320,
-            "flags": 1048576,
-            "strtype": "OBJECT/States",
-            "InheritedType": 1
-          },
-          {
-            "nid": 1010,
-            "strtype": "SCREEN/Screen",
-            "InheritedType": 1
-          },
-          {
-            "nid": 1020,
-            "strtype": "SCREEN/Temporary",
-            "strval": "False",
-            "InheritedType": 2
-          },
-          {
-            "part": "lv.PART.MAIN",
-            "childs": [],
-            "nid": 1040,
-            "strtype": "SCREEN/Style_main",
-            "strval": "lv.PART.MAIN, Rectangle, Pad, Text",
-            "InheritedType": 11
-          },
-          {
-            "part": "lv.PART.SCROLLBAR",
-            "childs": [],
-            "nid": 1050,
-            "strtype": "SCREEN/Style_scrollbar",
-            "strval": "lv.PART.SCROLLBAR, Rectangle, Pad",
-            "InheritedType": 11
-          },
-          {
-            "disabled": false,
-            "nid": 1000623,
-            "strtype": "_event/EventHandler",
-            "strval": "GESTURE_RIGHT(GESTURE)",
-            "childs": [
-              {
-                "nid": 1000624,
-                "strtype": "_event/name",
-                "strval": "Event3",
-                "InheritedType": 10
-              },
-              {
-                "nid": 1000625,
-                "strtype": "_event/condition_C",
-                "strval": "",
-                "InheritedType": 10
-              },
-              {
-                "nid": 1000626,
-                "strtype": "_event/condition_P",
-                "strval": "",
-                "InheritedType": 10
-              },
-              {
-                "nid": 1000627,
-                "strtype": "_event/action",
-                "strval": "CHANGE SCREEN",
-                "childs": [
-                  {
-                    "nid": 1000628,
-                    "strtype": "CHANGE SCREEN/Name",
-                    "strval": "CHANGE SCREEN",
-                    "InheritedType": 10
-                  },
-                  {
-                    "nid": 1000629,
-                    "strtype": "CHANGE SCREEN/Call",
-                    "strval": "ChangeScreen( <{Screen_to}>, lv.SCR_LOAD_ANIM.<{Fade_mode}>, <{Speed}>, <{Delay}>)",
-                    "InheritedType": 10
-                  },
-                  {
-                    "nid": 1000630,
-                    "strtype": "CHANGE SCREEN/CallC",
-                    "strval": "_ui_screen_change( &<{Screen_to}>, LV_SCR_LOAD_ANIM_<{Fade_mode}>, <{Speed}>, <{Delay}>, &<{Screen_to}>_screen_init);",
-                    "InheritedType": 10
-                  },
-                  {
-                    "nid": 1000631,
-                    "strtype": "CHANGE SCREEN/Screen_to",
-                    "strval": "GUID11259541-853175S9564322",
-                    "InheritedType": 9
-                  },
-                  {
-                    "nid": 1000632,
-                    "strtype": "CHANGE SCREEN/Fade_mode",
-                    "strval": "FADE_ON",
-                    "InheritedType": 3
-                  },
-                  {
-                    "nid": 1000633,
-                    "strtype": "CHANGE SCREEN/Speed",
-                    "integer": 500,
-                    "InheritedType": 6
-                  },
-                  {
-                    "nid": 1000634,
                     "strtype": "CHANGE SCREEN/Delay",
                     "InheritedType": 6
                   }
@@ -12178,7 +12062,7 @@
     "naming": "Name",
     "naming_force_lowercase": false,
     "naming_add_subcomponent": false,
-    "nidcnt": 1000647,
+    "nidcnt": 1000659,
     "BitDepth": 16,
     "Name": "SquareLine_Project"
   }

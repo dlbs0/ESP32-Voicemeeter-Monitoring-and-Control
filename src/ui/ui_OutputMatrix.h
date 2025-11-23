@@ -13,6 +13,7 @@ extern "C" {
 // SCREEN: ui_OutputMatrix
 extern void ui_OutputMatrix_screen_init(void);
 extern void ui_OutputMatrix_screen_destroy(void);
+extern void ui_event_OutputMatrix(lv_event_t * e);
 extern lv_obj_t * ui_OutputMatrix;
 extern lv_obj_t * ui_OutputButtonContainer;
 extern lv_obj_t * ui_Strip1ButtonA1;

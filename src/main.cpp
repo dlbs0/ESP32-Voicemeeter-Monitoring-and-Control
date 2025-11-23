@@ -14,7 +14,6 @@ DisplayManager displayManager;
 NetworkingManager networkingManager;
 tagVBAN_VMRT_PACKET currentRTPPacket;
 
-unsigned long lastFrameTime = 0;
 unsigned long lastInteractionTime = 0;
 
 #define ROTATION_ANGLE_TO_DB_CHANGE 9.0 // degrees
@@ -43,8 +42,7 @@ void loop()
   currentRTPPacket = networkingManager.getCurrentPacket();
   displayManager.showLatestVoicemeeterData(currentRTPPacket);
 
-  if (millis() - lastFrameTime > 10)
-    displayManager.update();
+  displayManager.update();
   auto currentScreen = displayManager.getCurrentScreen();
 
   float angleDiff = rotationManager.update();
