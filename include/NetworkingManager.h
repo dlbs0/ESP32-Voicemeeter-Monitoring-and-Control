@@ -16,6 +16,7 @@ public:
     void sendCommand(const String &command);
     void incrementVolume(uint8_t channel, bool up);
     void incrementVolume(uint8_t channel, float level);
+    void setIsInteracting(bool interacting);
 
 private:
     static const unsigned int LOCAL_PORT = 6980;
@@ -32,4 +33,6 @@ private:
     std::vector<uint8_t> createCommandPacket(const String &command);
     std::vector<uint8_t> createRTPPacket();
     void handleUDPPacket(AsyncUDPPacket packet);
+
+    bool isInteracting = false;
 };

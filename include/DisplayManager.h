@@ -31,7 +31,9 @@ public:
     void update();
     static void setBrightness(uint8_t brightness, bool instant = false);
     void showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet);
+    void showLatestBatteryData(float battPerc, int chgTime, float battVolt);
     void setConnectionStatus(bool connected);
+    void setIsInteracting(bool interacting);
     std::vector<String> getIssuedCommands();
     long getLastTouchTime() { return lastTouchTime; }
     UiState getCurrentScreen() { return currentScreen; }
@@ -92,4 +94,10 @@ private:
         unsigned long pendingTime = 0;
     };
     pendingButton pendingButtonGridState[numBuses * numOutputs] = {pendingButton()};
+
+    float batteryPercentage = 0;
+    float batteryVoltage = 0;
+    int chargeTime = 0;
+
+    bool isInteracting = false;
 };

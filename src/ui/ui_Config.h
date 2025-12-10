@@ -31,6 +31,7 @@ extern void ui_event_ResetButton(lv_event_t * e);
 extern lv_obj_t * ui_ResetButton;
 extern lv_obj_t * ui_ResetLabel;
 extern lv_obj_t * ui_Label6;
+extern lv_obj_t * ui_BatteryLifeLabel;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

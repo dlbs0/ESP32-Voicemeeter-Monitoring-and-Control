@@ -1,17 +1,13 @@
 #include <Arduino.h>
-#include <WiFiManager.h> //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
-#include "AsyncUDP.h"
-#include <TFT_eSPI.h> // Include the graphics library
-#include <MLX90393.h>
-#include <CST816S.h>
 #include "RotationManager.h"
 #include "NetworkingManager.h"
 #include "DisplayManager.h"
-#include <lvgl.h>
+#include "PowerManager.h"
 
 RotationManager rotationManager;
 DisplayManager displayManager;
 NetworkingManager networkingManager;
+PowerManager powerManager;
 tagVBAN_VMRT_PACKET currentRTPPacket;
 
 unsigned long lastInteractionTime = 0;
@@ -32,6 +28,7 @@ void setup()
   rotationManager.begin();
 
   networkingManager.begin();
+  powerManager.begin();
 }
 
 void loop()
@@ -41,6 +38,9 @@ void loop()
   networkingManager.update();
   currentRTPPacket = networkingManager.getCurrentPacket();
   displayManager.showLatestVoicemeeterData(currentRTPPacket);
+  float batteryPercentage = powerManager.getBatteryPercentage();
+  int chargeTime = powerManager.getChargeTime();
+  displayManager.showLatestBatteryData(batteryPercentage, chargeTime, powerManager.getBatteryVoltage());
 
   // displayManager.update();
   auto currentScreen = displayManager.getCurrentScreen();
@@ -59,4 +59,7 @@ void loop()
   }
 
   lastInteractionTime = max(displayManager.getLastTouchTime(), rotationManager.getLastRotationTime());
+  // if no interaction for 2 minutes, dim the screen
+  bool isInteracting = (millis() - lastInteractionTime) < 120000;
+  displayManager.setIsInteracting(isInteracting);
 }

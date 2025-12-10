@@ -39,6 +39,7 @@ extern lv_obj_t * ui_Panel8;
 extern lv_obj_t * ui_Panel9;
 extern lv_obj_t * ui_MonitorDecrementSelectedChannel;
 extern lv_obj_t * ui_MonitorIncrementSelectedChannel;
+extern lv_obj_t * ui_BatteryBar;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

@@ -100,7 +100,11 @@ void DisplayManager::update()
         fpsFrameCount = 0;
         fpsLastMs = now;
     }
-    setBrightness(255, false);
+
+    if (isInteracting)
+        setBrightness(255, true);
+    else
+        setBrightness(40, false);
 
     // static lv_obj_t *lastLoadedScreen = nullptr;
     auto currentlyActiveScreen = lv_disp_get_scr_act(lv_display_get_default());
@@ -139,6 +143,10 @@ void DisplayManager::update()
     {
         updateOutputButtons(false);
     }
+    else if (currentlyActiveScreen == ui_Config)
+    {
+        lv_label_set_text(ui_BatteryLifeLabel, (String(batteryPercentage) + "% " + String(chargeTime) + "h " + String(batteryVoltage) + "V").c_str());
+    }
 
     lv_timer_handler(); // Update the UI
 }
@@ -149,6 +157,7 @@ void DisplayManager::updateArcs()
     static int lastLevelL[numVolumeArcs] = {-1, -1, -1};
     static int lastLevelR[numVolumeArcs] = {-1, -1, -1};
     static int lastSelectedArc = -1;
+    static float lastBatteryLevel = -1;
 
     short outputLevels[numVolumeArcs * 2] = {getOutputLevel(10), getOutputLevel(11), getOutputLevel(18), getOutputLevel(19), getOutputLevel(26), getOutputLevel(27)};
 
@@ -199,6 +208,12 @@ void DisplayManager::updateArcs()
         strncpy(dbLabelText, tmp, sizeof(dbLabelText));
         dbLabelText[sizeof(dbLabelText) - 1] = '\0';
         lv_label_set_text_static(ui_LabelArcLevel, dbLabelText);
+    }
+
+    if (batteryPercentage != lastBatteryLevel)
+    {
+        lv_bar_set_value(ui_BatteryBar, batteryPercentage, true);
+        lastBatteryLevel = batteryPercentage;
     }
 }
 
@@ -384,11 +399,20 @@ void DisplayManager::showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet
 {
     latestVoicemeeterData = packet;
 }
+void DisplayManager::showLatestBatteryData(float battPerc, int chgTime, float battVolt)
+{
+    batteryPercentage = battPerc;
+    chargeTime = chgTime;
+    batteryVoltage = battVolt;
+}
 
 void ::DisplayManager::setConnectionStatus(bool connected)
 {
-
     connectionStatus = connected;
+}
+void DisplayManager::setIsInteracting(bool interacting)
+{
+    isInteracting = interacting;
 }
 
 void DisplayManager::sendCommandString(const String &command)

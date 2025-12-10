@@ -106,6 +106,11 @@ std::vector<uint8_t> NetworkingManager::createRTPPacket()
     return rtp_packet;
 }
 
+void NetworkingManager::setIsInteracting(bool interacting)
+{
+    isInteracting = interacting;
+}
+
 // void printVector(std::vector<uint8_t> vec)
 // {
 //     for (int i = 0; i < vec.size(); i++)

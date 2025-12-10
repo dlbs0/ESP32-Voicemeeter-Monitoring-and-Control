@@ -19,6 +19,7 @@ lv_obj_t * ui_BackLabel = NULL;
 lv_obj_t * ui_ResetButton = NULL;
 lv_obj_t * ui_ResetLabel = NULL;
 lv_obj_t * ui_Label6 = NULL;
+lv_obj_t * ui_BatteryLifeLabel = NULL;
 // event funtions
 void ui_event_IPMinus(lv_event_t * e)
 {
@@ -189,6 +190,14 @@ void ui_Config_screen_init(void)
     lv_label_set_text(ui_Label6, "Config");
     lv_obj_set_style_text_font(ui_Label6, &lv_font_montserrat_20, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    ui_BatteryLifeLabel = lv_label_create(ui_Config);
+    lv_obj_set_width(ui_BatteryLifeLabel, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_BatteryLifeLabel, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_BatteryLifeLabel, 0);
+    lv_obj_set_y(ui_BatteryLifeLabel, 93);
+    lv_obj_set_align(ui_BatteryLifeLabel, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_BatteryLifeLabel, "8h");
+
     lv_obj_add_event_cb(ui_IPMinus, ui_event_IPMinus, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_IPPlus, ui_event_IPPlus, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_BackButton, ui_event_BackButton, LV_EVENT_ALL, NULL);
@@ -215,5 +224,6 @@ void ui_Config_screen_destroy(void)
     ui_ResetButton = NULL;
     ui_ResetLabel = NULL;
     ui_Label6 = NULL;
+    ui_BatteryLifeLabel = NULL;
 
 }
