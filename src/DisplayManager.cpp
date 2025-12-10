@@ -1,0 +1,515 @@
+#include "DisplayManager.h"
+
+// Static member definitions for DisplayManager (must be in a single translation unit)
+uint8_t DisplayManager::currentBrightness = 0;
+TFT_eSPI DisplayManager::tft = TFT_eSPI();
+CST816S DisplayManager::touch = CST816S(37, 38, 36, 35); // sda, scl, rst, irq
+tagVBAN_VMRT_PACKET DisplayManager::latestVoicemeeterData = {0};
+long DisplayManager::lastTouchTime = 0;
+short DisplayManager::selectedVolumeArc = 0;
+bool DisplayManager::connectionStatus = false;
+char DisplayManager::dbLabelText[16] = "--.-- dB";
+
+lv_obj_t *DisplayManager::strip_arcs[numVolumeArcs] = {nullptr};
+lv_obj_t *DisplayManager::level_arcs_l[numVolumeArcs] = {nullptr};
+lv_obj_t *DisplayManager::level_arcs_r[numVolumeArcs] = {nullptr};
+lv_obj_t *DisplayManager::label_db = nullptr;
+
+struct CmdItem
+{
+    char payload[64];
+};
+static QueueHandle_t s_cmdQueue = nullptr;
+static TaskHandle_t s_displayTaskHandle = nullptr;
+
+DisplayManager::DisplayManager()
+{
+    // ctor intentionally empty; static members are already defined above
+}
+
+void DisplayManager::begin()
+{
+    pinMode(DIMMING_PIN, OUTPUT);
+    setBrightness(0, true); // start at full brightness
+    /* Initialize LVGL */
+    lv_init();
+    /* Set the tick callback */
+    lv_tick_set_cb(my_tick);
+    /* Initialize the display driver (TFT_eSPI backend helper) */
+    auto disp = lv_tft_espi_create(240, 240, lv_buffer, BUF_SIZE);
+    lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_180);
+
+    ui_init();
+    setupLvglVaribleReferences();
+
+    touch.begin();
+    lv_timer_handler(); // Update the UI
+
+    setBrightness(255, false); // start at full brightness
+
+    // Register LVGL input device for the CST816S touchscreen (LVGL v9 API)
+    {
+        lv_indev_t *touch_indev = lv_indev_create();
+        if (touch_indev)
+        {
+            lv_indev_set_type(touch_indev, LV_INDEV_TYPE_POINTER);
+            lv_indev_set_read_cb(touch_indev, lv_touch_read);
+            lv_indev_set_display(touch_indev, disp);
+        }
+    }
+
+    // Run the UI functionality in a dedicated task
+    if (!s_cmdQueue)
+        s_cmdQueue = xQueueCreate(16, sizeof(CmdItem)); // capacity 16
+    if (!s_displayTaskHandle)
+    {
+        xTaskCreatePinnedToCore(
+            [](void *pv)
+            {
+                // Task entry: run LVGL handler loop
+                DisplayManager *mgr = static_cast<DisplayManager *>(pv);
+                const TickType_t delay = pdMS_TO_TICKS(16); // ~60Hz
+                for (;;)
+                {
+                    // Only call LVGL APIs from this task
+                    mgr->update();
+                    vTaskDelay(delay);
+                }
+            },
+            "DisplayTask",
+            12288, // increased stack size from 4096 -> 12288 (12KB) to avoid stack overflow
+            this,
+            2, // priority
+            &s_displayTaskHandle,
+            1 // pinned to core 1 (tune as needed)
+        );
+    }
+}
+
+void DisplayManager::update()
+{
+    // FPS logging (optional)
+    static unsigned long fpsLastMs = 0;
+    static uint32_t fpsFrameCount = 0;
+    fpsFrameCount++;
+    unsigned long now = millis();
+    if (now - fpsLastMs >= 1000)
+    {
+        Serial.print("Display FPS: ");
+        Serial.println(fpsFrameCount);
+        fpsFrameCount = 0;
+        fpsLastMs = now;
+    }
+
+    if (isInteracting)
+        setBrightness(255, true);
+    else
+        setBrightness(40, false);
+
+    // static lv_obj_t *lastLoadedScreen = nullptr;
+    auto currentlyActiveScreen = lv_disp_get_scr_act(lv_display_get_default());
+
+    // Choose a screen to display; only call lv_scr_load when target differs from current
+    if (!connectionStatus)
+    {
+        if (currentlyActiveScreen != ui_Loading)
+        {
+            lv_scr_load(ui_Loading); // create+load once
+        }
+        currentScreen = DISCONNECTED;
+    }
+    else if (currentlyActiveScreen != ui_OutputMatrix && currentlyActiveScreen != ui_Config)
+    {
+        if (currentlyActiveScreen == ui_Loading)
+        {
+            lv_obj_send_event(ui_Loading, LV_EVENT_KEY, NULL); // this will load the monitor screen with animation
+        }
+        else if (currentlyActiveScreen != ui_Monitor)
+            lv_scr_load(ui_Monitor); // expensive call
+        currentScreen = MONITOR;
+    }
+    else if (currentlyActiveScreen == ui_OutputMatrix)
+    {
+        currentScreen = OUTPUTS;
+    }
+
+    // Depending on chosen screen, update relevant elements
+    if (currentlyActiveScreen == ui_Monitor)
+    {
+        updateArcs();
+        updateOutputButtons(true);
+    }
+    else if (currentlyActiveScreen == ui_OutputMatrix)
+    {
+        updateOutputButtons(false);
+    }
+    else if (currentlyActiveScreen == ui_Config)
+    {
+        lv_label_set_text(ui_BatteryLifeLabel, (String(batteryPercentage) + "% " + String(chargeTime) + "h " + String(batteryVoltage) + "V").c_str());
+    }
+
+    lv_timer_handler(); // Update the UI
+}
+
+void DisplayManager::updateArcs()
+{
+    static int lastStripValue[numVolumeArcs] = {-1, -1, -1};
+    static int lastLevelL[numVolumeArcs] = {-1, -1, -1};
+    static int lastLevelR[numVolumeArcs] = {-1, -1, -1};
+    static int lastSelectedArc = -1;
+    static float lastBatteryLevel = -1;
+
+    short outputLevels[numVolumeArcs * 2] = {getOutputLevel(10), getOutputLevel(11), getOutputLevel(18), getOutputLevel(19), getOutputLevel(26), getOutputLevel(27)};
+
+    for (int i = 0; i < numVolumeArcs; ++i)
+    {
+        int stripVal = getStripLevel(13 + i);
+        if (stripVal != lastStripValue[i])
+        {
+            lv_arc_set_value(strip_arcs[i], stripVal);
+            lastStripValue[i] = stripVal;
+        }
+
+        int valL = (outputLevels[i * 2] * stripVal / dbMinOffset);
+        if (valL != lastLevelL[i])
+        {
+            lv_arc_set_value(level_arcs_l[i], valL);
+            lastLevelL[i] = valL;
+        }
+
+        int valR = (outputLevels[i * 2 + 1] * stripVal / dbMinOffset);
+        if (valR != lastLevelR[i])
+        {
+            lv_arc_set_value(level_arcs_r[i], valR);
+            lastLevelR[i] = valR;
+        }
+
+        // Only adjust colors/styles if selection changed
+        if (selectedVolumeArc != lastSelectedArc)
+        {
+            bool is_selected = i == selectedVolumeArc;
+
+            lv_obj_set_style_arc_color(strip_arcs[i], lv_color_hex(is_selected ? 0x70C399 : 0x44765C), LV_PART_INDICATOR);
+            lv_obj_set_style_arc_color(level_arcs_l[i], lv_color_hex(is_selected ? 0x92FFC8 : 0x529070), LV_PART_INDICATOR);
+            lv_obj_set_style_arc_color(level_arcs_r[i], lv_color_hex(is_selected ? 0x92FFC8 : 0x529070), LV_PART_INDICATOR);
+        }
+    }
+    lastSelectedArc = selectedVolumeArc;
+
+    // Update dB label
+    int dbValue = getStripLevel(13 + selectedVolumeArc);
+    // Format dB into the persistent buffer and update the label only if text changed.
+    char tmp[16];
+    float db = convertLevelToDb(dbValue);
+    // Use snprintf for bounds-safety and consistent formatting
+    snprintf(tmp, sizeof(tmp), "%2.1fdB", db);
+    if (strcmp(tmp, dbLabelText) != 0)
+    {
+        strncpy(dbLabelText, tmp, sizeof(dbLabelText));
+        dbLabelText[sizeof(dbLabelText) - 1] = '\0';
+        lv_label_set_text_static(ui_LabelArcLevel, dbLabelText);
+    }
+
+    if (batteryPercentage != lastBatteryLevel)
+    {
+        lv_bar_set_value(ui_BatteryBar, batteryPercentage, true);
+        lastBatteryLevel = batteryPercentage;
+    }
+}
+
+void DisplayManager::updateOutputButtons(bool previewButtons)
+{
+    // get the states for the output buttons
+    bool buttonStates[numBuses * numOutputs];
+    for (int i = 0; i < numBuses; ++i)
+    {
+        for (int j = 0; j < numOutputs; ++j)
+        {
+            buttonStates[i * numOutputs + j] = getStripOutputEnabled(5 + i, j);
+        }
+    }
+    // get the button container
+    lv_obj_t *btnContainer = ui_OutputButtonContainer;
+    if (previewButtons)
+        btnContainer = ui_OutputButtonPreviewContainer;
+
+    // iterate through buttons and update their states
+    auto childCount = lv_obj_get_child_count(btnContainer);
+    for (short i = 0; i < childCount; i++)
+    {
+        auto btn = lv_obj_get_child(btnContainer, i);
+        bool enabled = buttonStates[i];
+        if (enabled)
+            lv_obj_add_state(btn, LV_STATE_CHECKED);
+        else
+            lv_obj_clear_state(btn, LV_STATE_CHECKED);
+    }
+}
+
+void DisplayManager::setupLvglVaribleReferences()
+{ // assign UI arc widgets to the pre-declared arrays
+    strip_arcs[0] = ui_LevelArc1;
+    strip_arcs[1] = ui_LevelArc2;
+    strip_arcs[2] = ui_LevelArc3;
+    level_arcs_l[0] = ui_MonitorArcL1;
+    level_arcs_l[1] = ui_MonitorArcL2;
+    level_arcs_l[2] = ui_MonitorArcL3;
+    level_arcs_r[0] = ui_MonitorArcR1;
+    level_arcs_r[1] = ui_MonitorArcR2;
+    level_arcs_r[2] = ui_MonitorArcR3;
+
+    // get the button container
+    auto btnContainer = ui_OutputButtonContainer;
+    ;
+    // iterate through buttons and create callbacks
+    auto childCount = lv_obj_get_child_count(btnContainer);
+    for (short i = 0; i < childCount; i++)
+    {
+        auto btn = lv_obj_get_child(btnContainer, i);
+        lv_obj_add_event_cb(btn, output_btn_event_cb, LV_EVENT_CLICKED, this);
+    }
+
+    // lv_obj_add_event_cb(ui_Monitor, ui_event_Monitor_Callback, LV_EVENT_GESTURE, NULL);
+    lv_obj_add_event_cb(ui_MonitorIncrementSelectedChannel, ui_event_Monitor_Callback, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_MonitorDecrementSelectedChannel, ui_event_Monitor_Callback, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_add_event_cb(ui_ResetButton, [](lv_event_t *e)
+                        {
+                            lv_event_code_t event_code = lv_event_get_code(e);
+                            if (event_code == LV_EVENT_CLICKED)
+                            {
+                                Serial.println("Reset button clicked, restarting...");
+                                delay(500);
+                                ESP.restart();
+                            } }, LV_EVENT_CLICKED, NULL);
+
+    Serial.println("LVGL initialized");
+}
+
+void DisplayManager::ui_event_Monitor_Callback(lv_event_t *e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    // if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_RIGHT)
+    // {
+    //     selectedVolumeArc++;
+    //     if (selectedVolumeArc >= numVolumeArcs)
+    //         selectedVolumeArc = 0;
+    // }
+    // else if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_LEFT)
+    // {
+    //     if (selectedVolumeArc == 0)
+    //         selectedVolumeArc = numVolumeArcs - 1;
+    //     else
+    //         selectedVolumeArc--;
+    // }
+
+    // handle invisible buttons for increment/decrement on monitor screen
+    if (event_code == LV_EVENT_CLICKED)
+    {
+        lv_obj_t *target = (lv_obj_t *)lv_event_get_target(e);
+        if (target == ui_MonitorIncrementSelectedChannel)
+        {
+            selectedVolumeArc++;
+            if (selectedVolumeArc >= numVolumeArcs)
+                selectedVolumeArc = 0;
+        }
+        else if (target == ui_MonitorDecrementSelectedChannel)
+        {
+            if (selectedVolumeArc == 0)
+                selectedVolumeArc = numVolumeArcs - 1;
+            else
+                selectedVolumeArc--;
+        }
+    }
+}
+
+// Helper to find a button index from object pointer
+bool DisplayManager::find_output_button(lv_obj_t *btn, int &busIdx, int &outIdx)
+{
+    auto btnContainer = ui_OutputButtonContainer;
+    auto buttonCount = lv_obj_get_child_count(btnContainer);
+
+    for (int i = 0; i < numBuses; ++i)
+    {
+        for (int j = 0; j < numOutputs; ++j)
+        {
+            if (i * numOutputs + j >= buttonCount)
+                return false;
+            auto btnCandidate = lv_obj_get_child(btnContainer, i * numOutputs + j);
+
+            if (btnCandidate == btn)
+            {
+                busIdx = i;
+                outIdx = j;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// Button event handler for outputs grid
+void DisplayManager::output_btn_event_cb(lv_event_t *e)
+{
+    // Retrieve DisplayManager instance pointer passed as user data when the callback was attached
+    DisplayManager *self = static_cast<DisplayManager *>(lv_event_get_user_data(e));
+    if (!self)
+        return;
+
+    lv_obj_t *btn = (lv_obj_t *)lv_event_get_target(e);
+    int busIdx = -1, outIdx = -1;
+    if (!find_output_button(btn, busIdx, outIdx))
+        return;
+
+    // toggle state
+    bool newState = !getStripOutputEnabled(5 + busIdx, outIdx);
+    String commandString = "Strip[" + String(5 + busIdx) + "].A" + String(outIdx + 1) + " = " + String(newState);
+    Serial.println(commandString);
+    self->sendCommandString(commandString);
+}
+
+// Wrapper with generic pointers to avoid parser issues with forward typedefs in some toolchains.
+void DisplayManager::lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
+{
+    (void)indev;
+    // Poll hardware when available and update cached values
+    if (touch.available())
+    {
+        byte gestureId = touch.data.gestureID;
+        lastTouchTime = millis();
+
+        data->point.x = touch.data.x;
+        data->point.y = touch.data.y;
+        data->state = (touch.data.points > 0) ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+
+        // Serial.print(touch.gesture());
+        // Serial.print("\t");
+        // Serial.print(touch.data.points);
+        // Serial.print("\t");
+        // Serial.print(touch.data.event);
+        // Serial.print("\t");
+        // Serial.print(touch.data.x);
+        // Serial.print("\t");
+        // Serial.println(touch.data.y);
+    }
+}
+
+void DisplayManager::showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet)
+{
+    latestVoicemeeterData = packet;
+}
+void DisplayManager::showLatestBatteryData(float battPerc, int chgTime, float battVolt)
+{
+    batteryPercentage = battPerc;
+    chargeTime = chgTime;
+    batteryVoltage = battVolt;
+}
+
+void ::DisplayManager::setConnectionStatus(bool connected)
+{
+    connectionStatus = connected;
+}
+void DisplayManager::setIsInteracting(bool interacting)
+{
+    isInteracting = interacting;
+}
+
+void DisplayManager::sendCommandString(const String &command)
+{
+    if (!s_cmdQueue)
+    { /* fallback: ignore or use mutex */
+        return;
+    }
+    CmdItem item;
+    strncpy(item.payload, command.c_str(), sizeof(item.payload));
+    item.payload[sizeof(item.payload) - 1] = '\0';
+    xQueueSend(s_cmdQueue, &item, 0); // non-blocking; increase timeout if needed
+}
+
+std::vector<String> DisplayManager::getIssuedCommands()
+{
+    std::vector<String> out;
+    if (!s_cmdQueue)
+        return out;
+    CmdItem item;
+    while (xQueueReceive(s_cmdQueue, &item, 0) == pdTRUE)
+    {
+        out.emplace_back(item.payload);
+    }
+    return out;
+}
+
+// return number between 0 and 6000
+short DisplayManager::getOutputLevel(byte channel)
+{
+    short val = latestVoicemeeterData.inputLeveldB100[channel] + dbMinOffset;
+    if (val < 0)
+        val = 0;
+    return val;
+}
+short DisplayManager::getStripLevel(byte channel)
+{
+    short val = latestVoicemeeterData.stripGaindB100Layer1[channel] + dbMinOffset;
+    if (val < 0)
+        val = 0;
+    return val;
+}
+
+float DisplayManager::convertLevelToPercent(int level)
+{
+    // level is 0 to dbMinOffset
+    if (level <= 0)
+        return 0.0f;
+    if (level >= dbMinOffset)
+        return 1.0f;
+    return static_cast<float>(level) / dbMinOffset;
+}
+
+float DisplayManager::convertLevelToDb(int level)
+{
+    return (static_cast<float>(level) / 100.0f) - 60.0f;
+}
+
+bool DisplayManager::getStripOutputEnabled(byte stripNo, byte outputNo)
+{
+    unsigned long stripState = latestVoicemeeterData.stripState[stripNo];
+    switch (outputNo)
+    {
+    case 0:
+        return stripState & VMRTSTATE_MODE_BUSA1;
+    case 1:
+        return stripState & VMRTSTATE_MODE_BUSA2;
+    case 2:
+        return stripState & VMRTSTATE_MODE_BUSA3;
+    case 3:
+        return stripState & VMRTSTATE_MODE_BUSA4;
+    case 4:
+        return stripState & VMRTSTATE_MODE_BUSA5;
+    default:
+        return false;
+    }
+}
+
+/* Tick source, tell LVGL how much time (milliseconds) has passed */
+uint32_t DisplayManager::my_tick(void)
+{
+    return millis();
+}
+
+void DisplayManager::setBrightness(uint8_t brightness, bool instant)
+{
+    if (brightness != currentBrightness)
+    {
+        if (instant)
+            currentBrightness = brightness;
+        else
+        {
+            if (brightness - currentBrightness > 0)
+                currentBrightness++;
+            else
+                currentBrightness--;
+        }
+        analogWrite(DIMMING_PIN, currentBrightness);
+    }
+}

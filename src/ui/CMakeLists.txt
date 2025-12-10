@@ -1,0 +1,10 @@
+SET(SOURCES ui_Loading.c
+    ui_Monitor.c
+    ui_Config.c
+    ui_OutputMatrix.c
+    ui.c
+    ui_comp_hook.c
+    ui_helpers.c
+    ui_events.c)
+
+add_library(ui ${SOURCES})
