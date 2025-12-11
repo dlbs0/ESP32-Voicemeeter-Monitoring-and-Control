@@ -16,7 +16,8 @@ public:
     void sendCommand(const String &command);
     void incrementVolume(uint8_t channel, bool up);
     void incrementVolume(uint8_t channel, float level);
-    void setIsInteracting(bool interacting);
+    void setPowerMode(bool interacting);
+    unsigned long getLastPacketTime() const { return lastPacketTime; }
 
 private:
     static const unsigned int LOCAL_PORT = 6980;

@@ -106,7 +106,7 @@ std::vector<uint8_t> NetworkingManager::createRTPPacket()
     return rtp_packet;
 }
 
-void NetworkingManager::setIsInteracting(bool interacting)
+void NetworkingManager::setPowerMode(bool interacting)
 {
     isInteracting = interacting;
 }

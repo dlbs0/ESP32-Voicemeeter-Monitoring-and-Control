@@ -6,6 +6,9 @@
 #include "VoicemeeterProtocol.h"
 #include "ui/ui.h"
 
+// Forward declaration
+class PowerManager;
+
 #define dbMinOffset 6000
 #define TFTSIZE 240
 #define arcOffsetAngle 40
@@ -28,8 +31,8 @@ class DisplayManager
 public:
     DisplayManager();
     void begin();
-    void update();
-    static void setBrightness(uint8_t brightness, bool instant = false);
+    void begin(class PowerManager *powerMgr);
+    void update(bool displayShouldBeOn, bool reducePowerMode);
     void showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet);
     void showLatestBatteryData(float battPerc, int chgTime, float battVolt);
     void setConnectionStatus(bool connected);
@@ -40,8 +43,6 @@ public:
     short getSelectedVolumeArc() { return selectedVolumeArc; }
 
 private:
-    static const uint8_t DIMMING_PIN = 14;
-    static uint8_t currentBrightness;
     static TFT_eSPI tft;
     static CST816S touch;
     static tagVBAN_VMRT_PACKET latestVoicemeeterData;
@@ -49,6 +50,7 @@ private:
     static bool connectionStatus;
     static short selectedVolumeArc;
     UiState currentScreen = LOADING;
+    class PowerManager *powerManager = nullptr; // reference to power manager for display power control
     void setupLvglVaribleReferences();
     void updateArcs();
     void updateOutputButtons(bool previewButtons);

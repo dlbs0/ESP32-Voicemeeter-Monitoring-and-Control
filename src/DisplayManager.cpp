@@ -1,7 +1,7 @@
 #include "DisplayManager.h"
+#include "PowerManager.h"
 
 // Static member definitions for DisplayManager (must be in a single translation unit)
-uint8_t DisplayManager::currentBrightness = 0;
 TFT_eSPI DisplayManager::tft = TFT_eSPI();
 CST816S DisplayManager::touch = CST816S(37, 38, 36, 35); // sda, scl, rst, irq
 tagVBAN_VMRT_PACKET DisplayManager::latestVoicemeeterData = {0};
@@ -29,8 +29,13 @@ DisplayManager::DisplayManager()
 
 void DisplayManager::begin()
 {
-    pinMode(DIMMING_PIN, OUTPUT);
-    setBrightness(0, true); // start at full brightness
+    begin(nullptr);
+}
+
+void DisplayManager::begin(PowerManager *powerMgr)
+{
+    powerManager = powerMgr;
+
     /* Initialize LVGL */
     lv_init();
     /* Set the tick callback */
@@ -44,8 +49,6 @@ void DisplayManager::begin()
 
     touch.begin();
     lv_timer_handler(); // Update the UI
-
-    setBrightness(255, false); // start at full brightness
 
     // Register LVGL input device for the CST816S touchscreen (LVGL v9 API)
     {
@@ -67,12 +70,23 @@ void DisplayManager::begin()
             [](void *pv)
             {
                 // Task entry: run LVGL handler loop
+                static bool displayOn = true;
+                static bool lowFramerate = false;
                 DisplayManager *mgr = static_cast<DisplayManager *>(pv);
-                const TickType_t delay = pdMS_TO_TICKS(16); // ~60Hz
                 for (;;)
                 {
+                    // Query power state from power manager
+                    if (mgr->powerManager)
+                    {
+                        displayOn = mgr->powerManager->displayPowerOnRequired();
+                        lowFramerate = mgr->powerManager->lowFramerateRequired();
+                    }
+
                     // Only call LVGL APIs from this task
-                    mgr->update();
+                    mgr->update(displayOn, lowFramerate);
+
+                    // Dynamic refresh rate: 60Hz when active, 2Hz when idle
+                    TickType_t delay = lowFramerate ? pdMS_TO_TICKS(250) : pdMS_TO_TICKS(16);
                     vTaskDelay(delay);
                 }
             },
@@ -86,7 +100,7 @@ void DisplayManager::begin()
     }
 }
 
-void DisplayManager::update()
+void DisplayManager::update(bool displayShouldBeOn, bool reducePowerMode)
 {
     // FPS logging (optional)
     static unsigned long fpsLastMs = 0;
@@ -101,10 +115,31 @@ void DisplayManager::update()
         fpsLastMs = now;
     }
 
-    if (isInteracting)
-        setBrightness(255, true);
-    else
-        setBrightness(40, false);
+    // Handle display sleep/wake based on power manager state
+    static bool wasDisplayOn = true;
+    if (displayShouldBeOn && !wasDisplayOn)
+    {
+        // Resume: turn display back on
+        // tft.writecommand(0x29); // TFT_DISPON: turn on display
+        // tft.writecommand(0x11); // TFT_SLPOUT: exit sleep mode
+        Serial.println("Display ON");
+        wasDisplayOn = true;
+    }
+    else if (!displayShouldBeOn && wasDisplayOn)
+    {
+        // Shutdown: turn display off
+        // tft.writecommand(0x10); // TFT_SLPIN: enter sleep mode
+        // tft.writecommand(0x28); // TFT_DISPOFF: turn off display
+        Serial.println("Display OFF (sleep)");
+        wasDisplayOn = false;
+    }
+
+    // When display is off, skip rendering to save power
+    if (!displayShouldBeOn)
+    {
+        vTaskDelay(pdMS_TO_TICKS(250)); // minimal polling when display is off
+        return;
+    }
 
     // static lv_obj_t *lastLoadedScreen = nullptr;
     auto currentlyActiveScreen = lv_disp_get_scr_act(lv_display_get_default());
@@ -149,6 +184,7 @@ void DisplayManager::update()
     }
 
     lv_timer_handler(); // Update the UI
+    // powerManager->setDisplayReady(true);
 }
 
 void DisplayManager::updateArcs()
@@ -495,21 +531,4 @@ bool DisplayManager::getStripOutputEnabled(byte stripNo, byte outputNo)
 uint32_t DisplayManager::my_tick(void)
 {
     return millis();
-}
-
-void DisplayManager::setBrightness(uint8_t brightness, bool instant)
-{
-    if (brightness != currentBrightness)
-    {
-        if (instant)
-            currentBrightness = brightness;
-        else
-        {
-            if (brightness - currentBrightness > 0)
-                currentBrightness++;
-            else
-                currentBrightness--;
-        }
-        analogWrite(DIMMING_PIN, currentBrightness);
-    }
 }

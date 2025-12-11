@@ -20,11 +20,11 @@ void setup()
   digitalWrite(45, HIGH); // enable peripheral power
   pinMode(0, OUTPUT);
   digitalWrite(0, HIGH); // something something reset
-  // delay(4000);
+  delay(5000);
   Serial.begin(115200);
   Serial.println("Starting...");
 
-  displayManager.begin();
+  displayManager.begin(&powerManager);
   rotationManager.begin();
 
   networkingManager.begin();
@@ -59,7 +59,8 @@ void loop()
   }
 
   lastInteractionTime = max(displayManager.getLastTouchTime(), rotationManager.getLastRotationTime());
-  // if no interaction for 2 minutes, dim the screen
-  bool isInteracting = (millis() - lastInteractionTime) < 120000;
-  displayManager.setIsInteracting(isInteracting);
+  // Update power manager with network and interaction state
+  // bool hasUserInteraction = (millis() - lastInteractionTime) < 3000;
+  // bool isNetworkActive = networkingManager.isConnected();
+  powerManager.updateDisplayPowerState(networkingManager.getLastPacketTime(), lastInteractionTime);
 }
