@@ -16,8 +16,8 @@ public:
     void sendCommand(const String &command);
     void incrementVolume(uint8_t channel, bool up);
     void incrementVolume(uint8_t channel, float level);
-    void setPowerMode(bool interacting);
     unsigned long getLastPacketTime() const { return lastPacketTime; }
+    unsigned long getConectionStartTime() const { return connectionStartTime; }
 
 private:
     static const unsigned int LOCAL_PORT = 6980;
@@ -28,12 +28,11 @@ private:
     bool connected;
     unsigned long lastPacketTime;
     unsigned long lastRTPRequestTime;
+    unsigned long connectionStartTime;
     tagVBAN_VMRT_PACKET currentRTPPacket;
     uint8_t commandFrameCounter;
 
     std::vector<uint8_t> createCommandPacket(const String &command);
     std::vector<uint8_t> createRTPPacket();
     void handleUDPPacket(AsyncUDPPacket packet);
-
-    bool isInteracting = false;
 };

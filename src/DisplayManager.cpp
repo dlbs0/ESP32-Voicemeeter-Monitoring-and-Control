@@ -70,11 +70,11 @@ void DisplayManager::begin(PowerManager *powerMgr)
             [](void *pv)
             {
                 // Task entry: run LVGL handler loop
-                static bool displayOn = true;
-                static bool lowFramerate = false;
                 DisplayManager *mgr = static_cast<DisplayManager *>(pv);
                 for (;;)
                 {
+                    byte displayOn = 3;
+                    byte lowFramerate = 3;
                     // Query power state from power manager
                     if (mgr->powerManager)
                     {
@@ -100,7 +100,7 @@ void DisplayManager::begin(PowerManager *powerMgr)
     }
 }
 
-void DisplayManager::update(bool displayShouldBeOn, bool reducePowerMode)
+void DisplayManager::update(byte displayShouldBeOn, byte reducePowerMode)
 {
     // FPS logging (optional)
     static unsigned long fpsLastMs = 0;
@@ -116,20 +116,22 @@ void DisplayManager::update(bool displayShouldBeOn, bool reducePowerMode)
     }
 
     // Handle display sleep/wake based on power manager state
-    static bool wasDisplayOn = true;
+    // Use instance member to persist display state between calls
     if (displayShouldBeOn && !wasDisplayOn)
     {
         // Resume: turn display back on
-        // tft.writecommand(0x29); // TFT_DISPON: turn on display
-        // tft.writecommand(0x11); // TFT_SLPOUT: exit sleep mode
+        tft.writecommand(0x29); // TFT_DISPON: turn on display
+        tft.writecommand(0x11); // TFT_SLPOUT: exit sleep mode
+        Serial.printf("DisplayShouldBeOn: %d. WasDisplayOn: %d\n", displayShouldBeOn, wasDisplayOn);
         Serial.println("Display ON");
         wasDisplayOn = true;
     }
     else if (!displayShouldBeOn && wasDisplayOn)
     {
         // Shutdown: turn display off
-        // tft.writecommand(0x10); // TFT_SLPIN: enter sleep mode
-        // tft.writecommand(0x28); // TFT_DISPOFF: turn off display
+        tft.writecommand(0x10); // TFT_SLPIN: enter sleep mode
+        tft.writecommand(0x28); // TFT_DISPOFF: turn off display
+        Serial.printf("DisplayShouldBeOn: %d. WasDisplayOn: %d\n", displayShouldBeOn, wasDisplayOn);
         Serial.println("Display OFF (sleep)");
         wasDisplayOn = false;
     }

@@ -32,7 +32,7 @@ public:
     DisplayManager();
     void begin();
     void begin(class PowerManager *powerMgr);
-    void update(bool displayShouldBeOn, bool reducePowerMode);
+    void update(byte displayShouldBeOn, byte reducePowerMode);
     void showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet);
     void showLatestBatteryData(float battPerc, int chgTime, float battVolt);
     void setConnectionStatus(bool connected);
@@ -102,4 +102,5 @@ private:
     int chargeTime = 0;
 
     bool isInteracting = false;
+    bool wasDisplayOn = true;
 };

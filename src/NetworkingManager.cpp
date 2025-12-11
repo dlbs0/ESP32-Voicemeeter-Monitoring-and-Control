@@ -18,7 +18,6 @@ bool NetworkingManager::begin()
         Serial.println("UDP connected");
         udp.onPacket([this](AsyncUDPPacket packet)
                      { handleUDPPacket(packet); });
-        connected = true;
         return true;
     }
     else
@@ -37,13 +36,18 @@ void NetworkingManager::update()
         udp.writeTo(rtp_packet.data(), rtp_packet.size(), DEST_IP, LOCAL_PORT);
         lastRTPRequestTime = millis();
     }
-    if ((millis() - lastPacketTime > 5000) || (WiFi.status() != WL_CONNECTED))
+    if (lastPacketTime == 0 || (millis() - lastPacketTime > 5000) || (WiFi.status() != WL_CONNECTED))
     {
         // haven't received data for a while, consider ourselves disconnected
         connected = false;
+        connectionStartTime = 0;
     }
     else
+    {
         connected = true;
+        if (connectionStartTime == 0)
+            connectionStartTime = millis();
+    }
 }
 
 void NetworkingManager::handleUDPPacket(AsyncUDPPacket packet)
@@ -104,11 +108,6 @@ std::vector<uint8_t> NetworkingManager::createRTPPacket()
 {
     std::vector<uint8_t> rtp_packet = {0x56, 0x42, 0x41, 0x4e, 0x60, 0x00, 0x20, 0x0f, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x20, 0x52, 0x54, 0x50, 0x01, 0x59, 0x41, 0, 0, 0, 0, 154};
     return rtp_packet;
-}
-
-void NetworkingManager::setPowerMode(bool interacting)
-{
-    isInteracting = interacting;
 }
 
 // void printVector(std::vector<uint8_t> vec)

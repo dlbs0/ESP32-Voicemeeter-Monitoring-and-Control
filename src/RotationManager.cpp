@@ -15,7 +15,6 @@ RotationManager::RotationManager() : mlx(), arduinoHal(), lastAngle(-100.0f), la
 
 void RotationManager::begin()
 {
-    Wire1.begin(8, 9, 10000000UL);
     g_rotation_instance = this;
     attachInterrupt(digitalPinToInterrupt(INT_PIN), RotationManager::dataReadyISR, RISING);
 

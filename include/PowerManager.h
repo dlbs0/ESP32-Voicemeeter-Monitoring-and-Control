@@ -15,7 +15,7 @@ public:
     bool isCharging();
 
     // Display power management based on charging state and network activity
-    void updateDisplayPowerState(unsigned long lastNetworkActive, unsigned long lastUserInteraction);
+    void updateDisplayPowerState(unsigned long lastNetworkActive, unsigned long lastUserInteraction, unsigned long connectionStartTime);
     bool lowFramerateRequired() const { return reducedFramerate; }
     bool displayPowerOnRequired() const { return displayOn; }
 
@@ -38,10 +38,10 @@ private:
     int updateRate = 6000; // update every 6 seconds
 
     // Display power management
-    bool displayOn = true;
+    volatile bool displayOn = true;
     byte displayBrightness = 255;
-    bool reducedFramerate = false;
-    bool peripheralPowerOn = true;
+    volatile bool reducedFramerate = false;
+    // bool peripheralPowerOn = true;
     bool shouldDeepSleep = false;
 
     bool emptyBattery = false;
@@ -53,5 +53,5 @@ private:
     static constexpr unsigned long BATTERY_NO_INTERACTION_TIMEOUT = 6000;   // 10 seconds before reducing framerate on battery
     static constexpr unsigned long PLUGGED_NO_NETWORK_TIMEOUT = 300000;     // 5 minutes without network packets before display off when plugged in
     static constexpr unsigned long PLUGGED_NO_INTERACTION_TIMEOUT = 600000; // 10 minutes without any interaction when plugged in
-    static constexpr unsigned long DEEP_SLEEP_INTERVAL = 6000;            // 10 minutes
+    static constexpr unsigned long DEEP_SLEEP_INTERVAL = 6000;              // 10 minutes
 };
