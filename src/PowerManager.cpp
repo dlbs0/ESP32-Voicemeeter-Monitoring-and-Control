@@ -7,16 +7,37 @@ PowerManager::PowerManager()
 {
 }
 
-void PowerManager::begin()
+void PowerManager::begin(RotationManager *rotMgr)
 {
+    // Wire1.begin(8, 9);
     pinMode(DIMMING_PIN, OUTPUT);
     setBrightness(0, true);
+    rotationManager = rotMgr;
 
-    if (!maxlipo.begin(&Wire1))
+    pinMode(45, OUTPUT);
+    digitalWrite(45, HIGH); // enable peripheral power
+
+    while (!maxlipo.begin(&Wire1))
     {
         Serial.println("MAX17048 not found!");
+        delay(1);
     }
-    // maxlipo.quickStart();
+    Serial.println("MAX17048 found!");
+    maxlipo.wake();
+    float bv = maxlipo.cellVoltage();
+    while (bv == 0 || isnan(bv))
+    {
+        Serial.println("Reading battery voltage...");
+        delay(100);
+        bv = maxlipo.cellVoltage();
+    }
+    Serial.println("Battery voltage: " + String(bv));
+    updateBatteryInfo();
+    if (isEmptyBattery())
+    {
+        Serial.println("Battery voltage too low! Deep sleeping...");
+        deepSleep();
+    }
 }
 
 float PowerManager::getBatteryPercentage()
@@ -49,17 +70,29 @@ bool PowerManager::isCharging()
     return chargeRate > 0 || batteryPercentage >= 100.0f;
     // return true;
 }
+bool PowerManager::isEmptyBattery()
+{
+    // positive charge rate means charging
+    return batteryVoltage < 3.65f;
+    // return true;
+}
 
 void PowerManager::updateDisplayPowerState(unsigned long lastNetworkActive, unsigned long lastUserInteraction, unsigned long connectionStartTime)
 {
+    // Serial.println("Checkpoint 0");
     if (lastCheckTime == 0 || millis() - lastCheckTime > updateRate)
         updateBatteryInfo();
 
+    // Serial.println("Checkpoint 1");
+
     if (lastCheckTime == 0)
         return;
+
+    // Serial.println("Checkpoint 2");
+
     // set up the internal variables with the latest data
-    isPluggedIn = isCharging();
-    emptyBattery = (batteryPercentage < 5.0f);
+    // isPluggedIn = isCharging();
+    isPluggedIn = false;
 
     bool tempDisplayOn = true;
     byte tempDisplayBrightness = 255;
@@ -88,9 +121,11 @@ void PowerManager::updateDisplayPowerState(unsigned long lastNetworkActive, unsi
         if (millis() - connectionStartTime < 10000)
         {
             tempReducedFramerate = false;
+            tempShouldDeepSleep = false;
+            tempDisplayOn = true;
         }
 
-        if (emptyBattery)
+        if (isEmptyBattery())
         {
             tempShouldDeepSleep = true;
             tempDisplayOn = false;
@@ -107,6 +142,8 @@ void PowerManager::updateDisplayPowerState(unsigned long lastNetworkActive, unsi
     reducedFramerate = tempReducedFramerate;
     shouldDeepSleep = tempShouldDeepSleep;
 
+    // Serial.println("Checkpoint 3");
+
     managePower();
 }
 
@@ -119,13 +156,7 @@ void PowerManager::managePower()
     // Manage deep sleep
     if (shouldDeepSleep)
     {
-        digitalWrite(45, LOW);
-        esp_wifi_stop();
-        esp_sleep_enable_timer_wakeup((uint64_t)DEEP_SLEEP_INTERVAL * 1000ULL);
-
-        Serial.println("Entering deep sleep due to low battery...");
-        delay(1000); // allow time for message to be sent
-        esp_deep_sleep_start();
+        // deepSleep();
     }
 
     if (millis() - lastPowerDecisionReportTime < updateRate)
@@ -133,6 +164,32 @@ void PowerManager::managePower()
     Serial.printf("PowerManager: displayOn=%d, brightness=%d, reducedFramerate=%d, shouldDeepSleep=%d\n",
                   displayOn, displayBrightness, reducedFramerate, shouldDeepSleep);
     lastPowerDecisionReportTime = millis();
+}
+
+void PowerManager::deepSleep()
+{
+    // maxlipo.hibernate();
+    Serial.printf("Preparing to deep sleep. RotationManager nullptr: %d\n, rotationManager initialized: %d\n",
+                  rotationManager == nullptr,
+                  (rotationManager != nullptr) ? rotationManager->isInitialized() : 0);
+    if (rotationManager != nullptr && rotationManager->isInitialized())
+    {
+        Serial.println("Preparing magnetometer for deep sleep...");
+        if (isEmptyBattery())
+            rotationManager->deepSleep();
+        else
+            rotationManager->enterWakeOnChangeMode();
+    }
+    digitalWrite(45, LOW);
+    esp_wifi_stop();
+    if (isEmptyBattery())
+        esp_sleep_enable_timer_wakeup((uint64_t)DEEP_SLEEP_INTERVAL * 100 * 1000ULL);
+    else
+        esp_sleep_enable_timer_wakeup((uint64_t)DEEP_SLEEP_INTERVAL * 1000ULL);
+
+    Serial.println("Entering deep sleep due to low battery...");
+    delay(1000); // allow time for message to be sent
+    esp_deep_sleep_start();
 }
 
 void PowerManager::updateBatteryInfo()

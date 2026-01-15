@@ -1,6 +1,6 @@
 #include "NetworkingManager.h"
 
-const IPAddress NetworkingManager::DEST_IP = IPAddress(192, 168, 72, 235); // Voicemeeter Potato IP
+const IPAddress NetworkingManager::DEST_IP = IPAddress(192, 168, 72, 236); // Voicemeeter Potato IP
 
 NetworkingManager::NetworkingManager() : connected(false), lastPacketTime(0), lastRTPRequestTime(0), commandFrameCounter(0)
 {

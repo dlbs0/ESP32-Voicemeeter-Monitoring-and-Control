@@ -38,6 +38,9 @@ public:
     void begin();
     float update();
     long getLastRotationTime() { return lastRotationTime; }
+    void deepSleep();
+    void enterWakeOnChangeMode();
+    bool isInitialized() const { return initialized; }
 
 private:
     static constexpr float ANGLE_DEADBAND = 3.0f; // degrees
@@ -46,6 +49,7 @@ private:
     MLX90393ArduinoHal arduinoHal;
     float lastAngle;
     long lastRotationTime;
+    bool initialized = false;
     static const int INT_PIN = 10; // (INT pin on MLX90393)
     volatile bool dataReady;
     short numStartupSamples = 0;

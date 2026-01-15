@@ -61,6 +61,9 @@ void DisplayManager::begin(PowerManager *powerMgr)
         }
     }
 
+    // Mark initialization as complete BEFORE creating task
+    isInitialized = true;
+
     // Run the UI functionality in a dedicated task
     if (!s_cmdQueue)
         s_cmdQueue = xQueueCreate(16, sizeof(CmdItem)); // capacity 16
@@ -102,6 +105,13 @@ void DisplayManager::begin(PowerManager *powerMgr)
 
 void DisplayManager::update(byte displayShouldBeOn, byte reducePowerMode)
 {
+    // Safety check: don't attempt to update if display hasn't been initialized
+    if (!isInitialized)
+    {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        return;
+    }
+
     // FPS logging (optional)
     static unsigned long fpsLastMs = 0;
     static uint32_t fpsFrameCount = 0;
@@ -149,7 +159,7 @@ void DisplayManager::update(byte displayShouldBeOn, byte reducePowerMode)
     // Choose a screen to display; only call lv_scr_load when target differs from current
     if (!connectionStatus)
     {
-        if (currentlyActiveScreen != ui_Loading)
+        if (currentlyActiveScreen != ui_Loading && currentlyActiveScreen != ui_Config)
         {
             lv_scr_load(ui_Loading); // create+load once
         }
@@ -169,6 +179,10 @@ void DisplayManager::update(byte displayShouldBeOn, byte reducePowerMode)
     {
         currentScreen = OUTPUTS;
     }
+    else if (currentlyActiveScreen == ui_Config)
+    {
+        currentScreen = CONFIG;
+    }
 
     // Depending on chosen screen, update relevant elements
     if (currentlyActiveScreen == ui_Monitor)
@@ -183,6 +197,15 @@ void DisplayManager::update(byte displayShouldBeOn, byte reducePowerMode)
     else if (currentlyActiveScreen == ui_Config)
     {
         lv_label_set_text(ui_BatteryLifeLabel, (String(batteryPercentage) + "% " + String(chargeTime) + "h " + String(batteryVoltage) + "V").c_str());
+    }
+    else if (currentlyActiveScreen == ui_Loading)
+    {
+        static float lastBatteryLevel = -1;
+        if (batteryPercentage != lastBatteryLevel)
+        {
+            lv_bar_set_value(ui_BatteryBar2, batteryPercentage, true);
+            lastBatteryLevel = batteryPercentage;
+        }
     }
 
     lv_timer_handler(); // Update the UI
@@ -201,6 +224,10 @@ void DisplayManager::updateArcs()
 
     for (int i = 0; i < numVolumeArcs; ++i)
     {
+        // Safety check: ensure arc objects are initialized
+        if (!strip_arcs[i] || !level_arcs_l[i] || !level_arcs_r[i])
+            continue;
+
         int stripVal = getStripLevel(13 + i);
         if (stripVal != lastStripValue[i])
         {
@@ -444,7 +471,7 @@ void DisplayManager::showLatestBatteryData(float battPerc, int chgTime, float ba
     batteryVoltage = battVolt;
 }
 
-void ::DisplayManager::setConnectionStatus(bool connected)
+void DisplayManager::setConnectionStatus(bool connected)
 {
     connectionStatus = connected;
 }

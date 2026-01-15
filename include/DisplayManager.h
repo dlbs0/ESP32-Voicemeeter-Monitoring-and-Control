@@ -22,6 +22,7 @@ enum UiState
 {
     LOADING,
     DISCONNECTED,
+    CONFIG,
     MONITOR,
     OUTPUTS
 };
@@ -103,4 +104,5 @@ private:
 
     bool isInteracting = false;
     bool wasDisplayOn = true;
+    bool isInitialized = false; // Flag to track initialization completion
 };

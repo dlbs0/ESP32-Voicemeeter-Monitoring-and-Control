@@ -25,8 +25,9 @@ void RotationManager::begin()
     Serial.println(mlx.setResolution(17, 17, 16)); // x, y, z)
     Serial.println(mlx.setOverSampling(2));
     Serial.println(mlx.setDigitalFiltering(4));
+    mlx.startBurst(MLX90393::X_FLAG | MLX90393::Y_FLAG);
 
-    mlx.startBurst(MLX90393::X_FLAG | MLX90393::Y_FLAG | MLX90393::Z_FLAG);
+    initialized = true; // Mark as initialized after setup complete
 }
 
 float RotationManager::update()
@@ -38,11 +39,10 @@ float RotationManager::update()
         MLX90393::txyzRaw data; // Structure to hold x, y, z data
 
         // Read the magnetometer data (this should be fast in burst mode)
-        if (mlx.readMeasurement(MLX90393::X_FLAG | MLX90393::Y_FLAG | MLX90393::Z_FLAG, data))
+        if (mlx.readMeasurement(MLX90393::X_FLAG | MLX90393::Y_FLAG, data))
         {
             int16_t x = static_cast<int16_t>(data.x);
             int16_t y = static_cast<int16_t>(data.y);
-            int16_t z = static_cast<int16_t>(data.z);
             float angle = atan2(-y, x);
             angle = angle * 180 / PI; // convert to degrees
             angle += 180;             // offset to 0-360 degrees
@@ -53,6 +53,8 @@ float RotationManager::update()
                 numStartupSamples++;
                 return 0.0f;
             }
+
+            // Serial.printf("X: %d, Y: %d, Angle: %.2f\n", x, y, angle);
 
             float angleDiff = angle - lastAngle;
             if (angleDiff > 180)
@@ -70,4 +72,24 @@ float RotationManager::update()
         }
     }
     return 0.0f;
+}
+
+void RotationManager::enterWakeOnChangeMode()
+{
+    Serial.println("Entering Wake-On-Change mode...");
+    // mlx.exit();
+    mlx.setWOXYThreshold(50); // Set threshold for wake-on-change
+    delay(100);
+    mlx.startWakeOnChange(MLX90393::X_FLAG | MLX90393::Y_FLAG);
+    delay(1000);
+    Serial.println("Entered Wake-On-Change mode.");
+    esp_sleep_enable_ext0_wakeup((gpio_num_t)INT_PIN, HIGH);
+}
+
+void RotationManager::deepSleep()
+{
+    mlx.exit();
+    delay(10);
+    mlx.reset();
+    Serial.println("Entering rotation deep sleep...");
 }

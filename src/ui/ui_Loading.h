@@ -20,6 +20,10 @@ extern void ui_event_Expanding_Green(lv_event_t * e);
 extern lv_obj_t * ui_Expanding_Green;
 extern void ui_event_Expanding_Black(lv_event_t * e);
 extern lv_obj_t * ui_Expanding_Black;
+extern lv_obj_t * ui_BatteryBar2;
+extern void ui_event_BackButton2(lv_event_t * e);
+extern lv_obj_t * ui_BackButton2;
+extern lv_obj_t * ui_BackLabel2;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

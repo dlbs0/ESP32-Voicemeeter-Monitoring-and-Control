@@ -9,6 +9,9 @@ lv_obj_t * ui_Loading = NULL;
 lv_obj_t * ui_Spinner1 = NULL;
 lv_obj_t * ui_Expanding_Green = NULL;
 lv_obj_t * ui_Expanding_Black = NULL;
+lv_obj_t * ui_BatteryBar2 = NULL;
+lv_obj_t * ui_BackButton2 = NULL;
+lv_obj_t * ui_BackLabel2 = NULL;
 // event funtions
 void ui_event_Loading(lv_event_t * e)
 {
@@ -49,6 +52,15 @@ void ui_event_Expanding_Black(lv_event_t * e)
     }
 }
 
+void ui_event_BackButton2(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        _ui_screen_change(&ui_Config, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300, 0, &ui_Config_screen_init);
+    }
+}
+
 // build funtions
 
 void ui_Loading_screen_init(void)
@@ -60,8 +72,8 @@ void ui_Loading_screen_init(void)
 
     ui_Spinner1 = lv_spinner_create(ui_Loading);
     //lv_spinner_set_anim_params(ui_Spinner1, 1000, 90);
-    lv_obj_set_width(ui_Spinner1, 100);
-    lv_obj_set_height(ui_Spinner1, 100);
+    lv_obj_set_width(ui_Spinner1, 110);
+    lv_obj_set_height(ui_Spinner1, 110);
     lv_obj_set_align(ui_Spinner1, LV_ALIGN_CENTER);
     lv_obj_remove_flag(ui_Spinner1, LV_OBJ_FLAG_CLICKABLE);      /// Flags
 
@@ -88,8 +100,47 @@ void ui_Loading_screen_init(void)
                        LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_SCROLLABLE);     /// Flags
     lv_obj_set_style_radius(ui_Expanding_Black, 120, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    ui_BatteryBar2 = lv_bar_create(ui_Loading);
+    lv_bar_set_value(ui_BatteryBar2, 25, LV_ANIM_OFF);
+    lv_bar_set_start_value(ui_BatteryBar2, 0, LV_ANIM_OFF);
+    lv_obj_set_width(ui_BatteryBar2, 32);
+    lv_obj_set_height(ui_BatteryBar2, 16);
+    lv_obj_set_x(ui_BatteryBar2, 0);
+    lv_obj_set_y(ui_BatteryBar2, 103);
+    lv_obj_set_align(ui_BatteryBar2, LV_ALIGN_CENTER);
+    lv_obj_set_style_bg_color(ui_BatteryBar2, lv_color_hex(0x293031), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_BatteryBar2, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    lv_obj_set_style_bg_color(ui_BatteryBar2, lv_color_hex(0x41755A), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_BatteryBar2, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+
+    //Compensating for LVGL9.1 draw crash with bar/slider max value when top-padding is nonzero and right-padding is 0
+    if(lv_obj_get_style_pad_top(ui_BatteryBar2, LV_PART_MAIN) > 0) lv_obj_set_style_pad_right(ui_BatteryBar2,
+                                                                                                  lv_obj_get_style_pad_right(ui_BatteryBar2, LV_PART_MAIN) + 1, LV_PART_MAIN);
+    ui_BackButton2 = lv_button_create(ui_Loading);
+    lv_obj_set_height(ui_BackButton2, 25);
+    lv_obj_set_width(ui_BackButton2, LV_SIZE_CONTENT);   /// 100
+    lv_obj_set_x(ui_BackButton2, 0);
+    lv_obj_set_y(ui_BackButton2, 75);
+    lv_obj_set_align(ui_BackButton2, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_BackButton2, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
+    lv_obj_remove_flag(ui_BackButton2, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_radius(ui_BackButton2, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_BackButton2, lv_color_hex(0x293031), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_BackButton2, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_BackLabel2 = lv_label_create(ui_BackButton2);
+    lv_obj_set_width(ui_BackLabel2, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_BackLabel2, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_align(ui_BackLabel2, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_BackLabel2, "CONFIG");
+    lv_obj_set_style_text_color(ui_BackLabel2, lv_color_hex(0x808080), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_BackLabel2, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_BackLabel2, &lv_font_montserrat_10, LV_PART_MAIN | LV_STATE_DEFAULT);
+
     lv_obj_add_event_cb(ui_Expanding_Green, ui_event_Expanding_Green, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Expanding_Black, ui_event_Expanding_Black, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_BackButton2, ui_event_BackButton2, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Loading, ui_event_Loading, LV_EVENT_ALL, NULL);
 
 }
@@ -103,5 +154,8 @@ void ui_Loading_screen_destroy(void)
     ui_Spinner1 = NULL;
     ui_Expanding_Green = NULL;
     ui_Expanding_Black = NULL;
+    ui_BatteryBar2 = NULL;
+    ui_BackButton2 = NULL;
+    ui_BackLabel2 = NULL;
 
 }
