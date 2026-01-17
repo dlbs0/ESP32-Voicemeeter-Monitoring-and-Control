@@ -10,6 +10,12 @@ private:
     MLX90393Hal *hal_ = nullptr;
 
 public:
+    enum
+    {
+        WOC_DIFF_REG = 0x1,
+        WOC_DIFF_MASK = 0x1000,
+        WOC_DIFF_SHIFT = 12
+    };
     MLX90393_Configurable(uint8_t address = 0x18)
         : i2c_address(address) {}
 
@@ -28,6 +34,24 @@ public:
         uint8_t status6 = setTemperatureCompensation(0);
 
         return status1 | status2 | status3 | status4 | status5 | status6;
+    }
+    uint8_t setWocDiff(int8_t ext_trig)
+    {
+        uint16_t old_val;
+        uint8_t status1 = readRegister(WOC_DIFF_REG, old_val);
+        uint8_t status2 = writeRegister(WOC_DIFF_REG,
+                                        (old_val & ~WOC_DIFF_MASK) |
+                                            ((uint16_t(ext_trig) << WOC_DIFF_SHIFT) &
+                                             WOC_DIFF_MASK));
+        return checkStatus(status1) | checkStatus(status2);
+    }
+
+    uint8_t getWocDiff(uint8_t &ext_trig)
+    {
+        uint16_t reg_val;
+        uint8_t status = readRegister(WOC_DIFF_REG, reg_val);
+        ext_trig = (reg_val & WOC_DIFF_MASK) >> WOC_DIFF_SHIFT;
+        return checkStatus(status);
     }
 };
 

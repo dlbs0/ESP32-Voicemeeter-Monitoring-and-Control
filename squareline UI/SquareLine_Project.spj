@@ -6967,7 +6967,7 @@
               {
                 "nid": 1030,
                 "strtype": "BAR/Value",
-                "integer": 25,
+                "integer": 40,
                 "InheritedType": 6
               },
               {
@@ -7017,6 +7017,11 @@
                     "strtype": "_style/StyleState",
                     "strval": "DEFAULT",
                     "childs": [
+                      {
+                        "nid": 10510,
+                        "strtype": "_style/Bg_Radius",
+                        "InheritedType": 6
+                      },
                       {
                         "nid": 10520,
                         "strtype": "_style/Bg_Color",
@@ -13718,7 +13723,7 @@
     "theme_color1": 5,
     "theme_color2": 0,
     "custom_variable_prefix": "uic",
-    "backup_cnt": 12,
+    "backup_cnt": 14,
     "autosave_cnt": 0,
     "group_color_cnt": 0,
     "lvgl_version": "9.1.0",

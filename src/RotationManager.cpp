@@ -76,12 +76,14 @@ float RotationManager::update()
 
 void RotationManager::enterWakeOnChangeMode()
 {
-    Serial.println("Entering Wake-On-Change mode...");
     mlx.exit();
-    mlx.setWOXYThreshold(50); // Set threshold for wake-on-change
-    delay(100);
+    uint8_t wocDiff;
+    mlx.getWocDiff(wocDiff);
+    if (wocDiff != 1)
+        mlx.setWocDiff(1);    // Enable Wake-On-Change on difference
+    mlx.setWOXYThreshold(10); // Set threshold for wake-on-change
     mlx.startWakeOnChange(MLX90393::X_FLAG | MLX90393::Y_FLAG);
-    delay(1000);
+    delay(10);
     Serial.println("Entered Wake-On-Change mode.");
     esp_sleep_enable_ext0_wakeup((gpio_num_t)INT_PIN, HIGH);
 }

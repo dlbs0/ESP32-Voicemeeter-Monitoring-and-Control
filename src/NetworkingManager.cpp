@@ -5,13 +5,18 @@ NetworkingManager::NetworkingManager() : connected(false), lastPacketTime(0), la
     ipAddressNotSaved = false;
 }
 
+void NetworkingManager::setupStores()
+{
+    preferences.begin("ipLastDigits", false);
+}
+
 bool NetworkingManager::begin()
 {
     wifiManager.autoConnect("VOLUME");
-    preferences.begin("ipLastDigits", false);
 
     Serial.print("Connected! IP address: ");
     Serial.println(WiFi.localIP());
+
     DEST_IP = IPAddress(WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], preferences.getChar("ipLastDigits", 2)); // Voicemeeter Potato IP
     Serial.print("Destination IP set to: ");
     Serial.println(DEST_IP);
@@ -153,6 +158,15 @@ std::vector<uint8_t> NetworkingManager::createRTPPacket()
     return rtp_packet;
 }
 
+char NetworkingManager::getDestIP()
+{
+    return preferences.getChar("ipLastDigits", 2);
+}
+
+uint32_t NetworkingManager::getDeviceIP()
+{
+    return WiFi.localIP();
+}
 // void printVector(std::vector<uint8_t> vec)
 // {
 //     for (int i = 0; i < vec.size(); i++)

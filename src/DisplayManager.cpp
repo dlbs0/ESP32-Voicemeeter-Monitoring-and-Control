@@ -110,17 +110,17 @@ void DisplayManager::update(byte displayShouldBeOn, byte reducePowerMode)
     }
 
     // FPS logging (optional)
-    static unsigned long fpsLastMs = 0;
-    static uint32_t fpsFrameCount = 0;
-    fpsFrameCount++;
-    unsigned long now = millis();
-    if (now - fpsLastMs >= 1000)
-    {
-        Serial.print("Display FPS: ");
-        Serial.println(fpsFrameCount);
-        fpsFrameCount = 0;
-        fpsLastMs = now;
-    }
+    // static unsigned long fpsLastMs = 0;
+    // static uint32_t fpsFrameCount = 0;
+    // fpsFrameCount++;
+    // unsigned long now = millis();
+    // if (now - fpsLastMs >= 1000)
+    // {
+    //     Serial.print("Display FPS: ");
+    //     Serial.println(fpsFrameCount);
+    //     fpsFrameCount = 0;
+    //     fpsLastMs = now;
+    // }
 
     // Handle display sleep/wake based on power manager state
     // Use instance member to persist display state between calls
@@ -345,9 +345,7 @@ void DisplayManager::setupLvglVaribleReferences()
                             } }, LV_EVENT_CLICKED, NULL);
 
     // Setup the config page
-    IPAddress ip = WiFi.localIP();
-    String ipStr = String(ip[0]) + "." + String(ip[1]) + "." + String(ip[2]) + ".";
-    lv_label_set_text(ui_IPAddress, ipStr.c_str());
+
     lv_spinbox_set_value(ui_IPDigitsBox, lastIPDigit);
     lv_obj_add_event_cb(ui_IPDigitsBox, ui_event_IP_Change_Callback, LV_EVENT_VALUE_CHANGED, this);
 
@@ -561,6 +559,15 @@ bool DisplayManager::getStripOutputEnabled(byte stripNo, byte outputNo)
     default:
         return false;
     }
+}
+
+void DisplayManager::showIpAddress(uint32_t address)
+{
+    String ipStr =
+        String(address & 0xFF) + "." +
+        String((address >> 16) & 0xFF) + "." +
+        String((address >> 8) & 0xFF) + ". ";
+    lv_label_set_text(ui_IPAddress, ipStr.c_str());
 }
 
 /* Tick source, tell LVGL how much time (milliseconds) has passed */

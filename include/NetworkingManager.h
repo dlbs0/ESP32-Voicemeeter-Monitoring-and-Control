@@ -22,6 +22,7 @@ class NetworkingManager
 {
 public:
     NetworkingManager();
+    void setupStores();
     bool begin();
     void update();
     bool isConnected() const { return connected; }
@@ -31,7 +32,8 @@ public:
     void incrementVolume(uint8_t channel, float level);
     unsigned long getLastPacketTime() const { return lastPacketTime; }
     unsigned long getConectionStartTime() const { return connectionStartTime; }
-    char getDestIP() const { return DEST_IP[3]; }
+    char getDestIP();
+    uint32_t getDeviceIP();
 
 private:
     static const unsigned int LOCAL_PORT = 6980;

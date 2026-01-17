@@ -28,7 +28,7 @@ void PowerManager::begin(RotationManager *rotMgr)
     while (bv == 0 || isnan(bv))
     {
         Serial.println("Reading battery voltage...");
-        delay(100);
+        delay(10);
         bv = maxlipo.cellVoltage();
     }
     Serial.println("Battery voltage: " + String(bv));
@@ -67,10 +67,10 @@ int PowerManager::getChargeTime()
 bool PowerManager::isCharging()
 {
     // positive charge rate means charging
-    return false;
-    // return chargeRate > 0 || batteryPercentage >= 100.0f;
-    // return true;
+    // return false;
+    return chargeRate > 0 || batteryPercentage >= 100.0f;
 }
+
 bool PowerManager::isEmptyBattery()
 {
     // positive charge rate means charging
@@ -142,7 +142,7 @@ void PowerManager::managePower()
 {
     // Manage peripheral power
 
-    setBrightness(displayBrightness, true);
+    setBrightness(displayBrightness, false);
 
     // Manage deep sleep
     if (shouldDeepSleep)
@@ -159,10 +159,6 @@ void PowerManager::managePower()
 
 void PowerManager::deepSleep()
 {
-    // maxlipo.hibernate();
-    Serial.printf("Preparing to deep sleep. RotationManager nullptr: %d\n, rotationManager initialized: %d\n",
-                  rotationManager == nullptr,
-                  (rotationManager != nullptr) ? rotationManager->isInitialized() : 0);
     if (rotationManager != nullptr && rotationManager->isInitialized())
     {
         Serial.println("Preparing magnetometer for deep sleep...");
@@ -174,12 +170,11 @@ void PowerManager::deepSleep()
     digitalWrite(45, LOW);
     esp_wifi_stop();
     if (isEmptyBattery())
-        esp_sleep_enable_timer_wakeup((uint64_t)DEEP_SLEEP_INTERVAL * 100 * 1000ULL);
-    else
-        esp_sleep_enable_timer_wakeup((uint64_t)DEEP_SLEEP_INTERVAL * 1000ULL);
+        esp_deep_sleep_start();
+    // esp_sleep_enable_timer_wakeup((uint64_t)DEEP_SLEEP_INTERVAL * 100 * 1000ULL);
 
     Serial.println("Entering deep sleep due to low battery...");
-    delay(1000); // allow time for message to be sent
+    delay(500); // allow time for message to be sent
     esp_deep_sleep_start();
 }
 
@@ -206,11 +201,14 @@ void PowerManager::setBrightness(uint8_t brightness, bool instant)
             currentBrightness = brightness;
         else
         {
-            if (brightness - currentBrightness > 0)
+            if (brightness > currentBrightness)
+                currentBrightness = brightness;
+            else if (brightness - currentBrightness > 0)
                 currentBrightness++;
             else
                 currentBrightness--;
         }
+
         analogWrite(DIMMING_PIN, currentBrightness);
     }
 }

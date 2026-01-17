@@ -5,14 +5,6 @@
 #include "NetworkingManager.h"
 #include "DisplayManager.h"
 #include "PowerManager.h"
-#include <FastLED.h>
-#define LED_PIN 46
-#define COLOR_ORDER GRB
-#define CHIPSET WS2811
-#define NUM_LEDS 1
-#define BRIGHTNESS 250
-
-CRGB leds[NUM_LEDS];
 
 RotationManager rotationManager;
 DisplayManager displayManager;
@@ -28,34 +20,32 @@ void setup()
 {
   pinMode(0, OUTPUT);
   digitalWrite(0, HIGH); // something something reset
-  FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
-  FastLED.setBrightness(BRIGHTNESS);
 
-  pinMode(45, OUTPUT);
-  digitalWrite(45, HIGH); // enable peripheral power
+  // pinMode(45, OUTPUT);
+  // digitalWrite(45, HIGH); // enable peripheral power
   Wire1.setPins(8, 9);
 
   esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
   if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0)
   {
-    Serial.println("Woke up from Magenetometer Wake-On-Change interrupt.");
     lastInteractionTime = 1;
-    leds[0] = CRGB::Blue;
-    FastLED.show();
-    delay(250);
-    leds[0] = CRGB::Black;
-    FastLED.show();
   }
-  // else
-    // delay(5000);
+  // // else
+  //   // delay(5000);
 
   Serial.begin(115200);
   Serial.println("Starting...");
-
+  Serial.printf("Initial millis: %lu\n", millis());
   powerManager.begin(&rotationManager);
+  Serial.printf("PowerManager initialized. Millis: %lu\n", millis());
+  networkingManager.setupStores();
   rotationManager.begin();
-  networkingManager.begin();
+  Serial.printf("RotationManager initialized. Millis: %lu\n", millis());
   displayManager.begin(&powerManager, networkingManager.getDestIP());
+  Serial.printf("DisplayManager initialized. Millis: %lu\n", millis());
+  networkingManager.begin();
+  Serial.printf("Setup complete. Millis: %lu\n", millis());
+  displayManager.showIpAddress(networkingManager.getDeviceIP());
 }
 
 void loop()
@@ -76,7 +66,6 @@ void loop()
   int chargeTime = powerManager.getChargeTime();
   displayManager.showLatestBatteryData(batteryPercentage, chargeTime, powerManager.getBatteryVoltage());
 
-  // displayManager.update();
   auto currentScreen = displayManager.getCurrentScreen();
 
   float angleDiff = rotationManager.update();

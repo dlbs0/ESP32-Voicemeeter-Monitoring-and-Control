@@ -37,6 +37,7 @@ public:
     void update(byte displayShouldBeOn, byte reducePowerMode);
     void showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet);
     void showLatestBatteryData(float battPerc, int chgTime, float battVolt);
+    void showIpAddress(uint32_t address);
     void setConnectionStatus(bool connected);
     void setIsInteracting(bool interacting);
     std::vector<NetworkCommand> getIssuedCommands();
