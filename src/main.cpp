@@ -40,7 +40,7 @@ void setup()
   powerManager.begin(&rotationManager);
   rotationManager.begin();
   networkingManager.begin();
-  displayManager.begin(&powerManager);
+  displayManager.begin(&powerManager, networkingManager.getDestIP());
 }
 
 void loop()

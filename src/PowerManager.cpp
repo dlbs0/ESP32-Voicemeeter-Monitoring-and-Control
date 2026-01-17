@@ -79,20 +79,15 @@ bool PowerManager::isEmptyBattery()
 
 void PowerManager::updateDisplayPowerState(unsigned long lastNetworkActive, unsigned long lastUserInteraction, unsigned long connectionStartTime)
 {
-    // Serial.println("Checkpoint 0");
     if (lastCheckTime == 0 || millis() - lastCheckTime > updateRate)
         updateBatteryInfo();
-
-    // Serial.println("Checkpoint 1");
 
     if (lastCheckTime == 0)
         return;
 
-    // Serial.println("Checkpoint 2");
-
     // set up the internal variables with the latest data
-    // isPluggedIn = isCharging();
-    isPluggedIn = false;
+    isPluggedIn = isCharging();
+    // isPluggedIn = false;
 
     bool tempDisplayOn = true;
     byte tempDisplayBrightness = 255;
@@ -132,8 +127,6 @@ void PowerManager::updateDisplayPowerState(unsigned long lastNetworkActive, unsi
         }
     }
 
-    // if (!displayReady)
-    //     tempDisplayBrightness = 0;
     if (!tempDisplayOn)
         tempDisplayBrightness = 0;
 
@@ -141,8 +134,6 @@ void PowerManager::updateDisplayPowerState(unsigned long lastNetworkActive, unsi
     displayBrightness = tempDisplayBrightness;
     reducedFramerate = tempReducedFramerate;
     shouldDeepSleep = tempShouldDeepSleep;
-
-    // Serial.println("Checkpoint 3");
 
     managePower();
 }
@@ -156,7 +147,7 @@ void PowerManager::managePower()
     // Manage deep sleep
     if (shouldDeepSleep)
     {
-        // deepSleep();
+        deepSleep();
     }
 
     if (millis() - lastPowerDecisionReportTime < updateRate)

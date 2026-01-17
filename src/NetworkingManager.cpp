@@ -1,17 +1,20 @@
 #include "NetworkingManager.h"
 
-const IPAddress NetworkingManager::DEST_IP = IPAddress(192, 168, 72, 236); // Voicemeeter Potato IP
-
 NetworkingManager::NetworkingManager() : connected(false), lastPacketTime(0), lastRTPRequestTime(0), commandFrameCounter(0)
 {
+    ipAddressNotSaved = false;
 }
 
 bool NetworkingManager::begin()
 {
     wifiManager.autoConnect("VOLUME");
+    preferences.begin("ipLastDigits", false);
 
     Serial.print("Connected! IP address: ");
     Serial.println(WiFi.localIP());
+    DEST_IP = IPAddress(WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], preferences.getChar("ipLastDigits", 2)); // Voicemeeter Potato IP
+    Serial.print("Destination IP set to: ");
+    Serial.println(DEST_IP);
 
     if (udp.listen(LOCAL_PORT))
     {
@@ -64,26 +67,66 @@ void NetworkingManager::handleUDPPacket(AsyncUDPPacket packet)
         {
             memcpy(&currentRTPPacket, packet.data(), sizeof(tagVBAN_VMRT_PACKET));
             lastPacketTime = millis();
+            if (ipAddressNotSaved)
+            {
+                preferences.putChar("ipLastDigits", DEST_IP[3]);
+                ipAddressNotSaved = false;
+            }
         }
     }
 }
 
-void NetworkingManager::sendCommand(const String &command)
+void NetworkingManager::sendCommand(const NetworkCommand &command)
 {
-    std::vector<uint8_t> commandPacket = createCommandPacket(command);
-    udp.writeTo(commandPacket.data(), commandPacket.size(), DEST_IP, LOCAL_PORT);
-    Serial.println("sent packet");
+    switch (command.type)
+    {
+    case NetworkCommandType::SEND_VBAN_COMMAND:
+    {
+        std::vector<uint8_t> commandPacket = createCommandPacket(command.payload);
+        udp.writeTo(commandPacket.data(), commandPacket.size(), DEST_IP, LOCAL_PORT);
+        Serial.println("sent packet");
+
+        break;
+    }
+    case NetworkCommandType::SET_IP:
+    {
+        Serial.print("Setting new IP ending to: ");
+        Serial.println(command.payload);
+        byte lastDigits = atoi(&command.payload[strlen(command.payload) - 3]);
+        String firstDigitsOfCurrentIP = String(WiFi.localIP()[0]) + "." + String(WiFi.localIP()[1]) + "." + String(WiFi.localIP()[2]) + ".";
+        String newIPString = firstDigitsOfCurrentIP + String(lastDigits);
+        auto newIP = IPAddress();
+        newIP.fromString(newIPString);
+        DEST_IP = newIP;
+
+        ipAddressNotSaved = true; // only save when we get a response back
+        std::vector<uint8_t> rtp_packet = createRTPPacket();
+        udp.writeTo(rtp_packet.data(), rtp_packet.size(), DEST_IP, LOCAL_PORT);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+void NetworkingManager::sendVBANCommand(const String &command)
+{
+    NetworkCommand item;
+    item.type = NetworkCommandType::SEND_VBAN_COMMAND;
+    strncpy(item.payload, command.c_str(), sizeof(item.payload));
+    item.payload[sizeof(item.payload) - 1] = '\0';
+    sendCommand(item);
 }
 
 void NetworkingManager::incrementVolume(uint8_t channel, bool up)
 {
     String command = "strip(" + String(channel + 5) + ").gain " + (up ? "+" : "-") + "= 3";
-    sendCommand(command);
+    sendVBANCommand(command);
 }
 void NetworkingManager::incrementVolume(uint8_t channel, float level)
 {
     String command = "strip(" + String(channel + 5) + ").gain " + "+= " + String(level, 2);
-    sendCommand(command);
+    sendVBANCommand(command);
 }
 
 std::vector<uint8_t> NetworkingManager::createCommandPacket(const String &command)

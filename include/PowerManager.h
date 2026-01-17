@@ -55,9 +55,9 @@ private:
     volatile bool displayReady = false;
 
     // Timeouts for display power management
-    static constexpr unsigned long BATTERY_NO_NETWORK_TIMEOUT = 16000;        // 2 minutes before display off on battery
-    static constexpr unsigned long BATTERY_NO_INTERACTION_TIMEOUT = 20000;    // 10 seconds before reducing framerate on battery
-    static constexpr unsigned long PLUGGED_NO_NETWORK_TIMEOUT = 60000;        // 5 minutes without network packets before display off when plugged in
-    static constexpr unsigned long PLUGGED_NO_INTERACTION_TIMEOUT = 12000000; // 2 hours without any interaction when plugged in
-    static constexpr unsigned long DEEP_SLEEP_INTERVAL = 12000000;            // 2 hours deep sleep on low battery
+    static constexpr unsigned long BATTERY_NO_NETWORK_TIMEOUT = 16000;     // 2 minutes before display off on battery
+    static constexpr unsigned long BATTERY_NO_INTERACTION_TIMEOUT = 20000; // 10 seconds before reducing framerate on battery
+    static constexpr unsigned long PLUGGED_NO_NETWORK_TIMEOUT = 60000;     // 5 minutes without network packets before display off when plugged in
+    static constexpr unsigned long PLUGGED_NO_INTERACTION_TIMEOUT = 60000; // 1 minute without any interaction when plugged in
+    static constexpr unsigned long DEEP_SLEEP_INTERVAL = 12000000;         // 3 hours deep sleep on low battery
 };

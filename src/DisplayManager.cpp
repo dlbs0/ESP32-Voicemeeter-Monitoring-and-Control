@@ -15,10 +15,6 @@ lv_obj_t *DisplayManager::level_arcs_l[numVolumeArcs] = {nullptr};
 lv_obj_t *DisplayManager::level_arcs_r[numVolumeArcs] = {nullptr};
 lv_obj_t *DisplayManager::label_db = nullptr;
 
-struct CmdItem
-{
-    char payload[64];
-};
 static QueueHandle_t s_cmdQueue = nullptr;
 static TaskHandle_t s_displayTaskHandle = nullptr;
 
@@ -32,9 +28,10 @@ void DisplayManager::begin()
     begin(nullptr);
 }
 
-void DisplayManager::begin(PowerManager *powerMgr)
+void DisplayManager::begin(PowerManager *powerMgr, byte lastIPD)
 {
     powerManager = powerMgr;
+    lastIPDigit = lastIPD;
 
     /* Initialize LVGL */
     lv_init();
@@ -66,7 +63,7 @@ void DisplayManager::begin(PowerManager *powerMgr)
 
     // Run the UI functionality in a dedicated task
     if (!s_cmdQueue)
-        s_cmdQueue = xQueueCreate(16, sizeof(CmdItem)); // capacity 16
+        s_cmdQueue = xQueueCreate(16, sizeof(NetworkCommand)); // capacity 16
     if (!s_displayTaskHandle)
     {
         xTaskCreatePinnedToCore(
@@ -325,7 +322,6 @@ void DisplayManager::setupLvglVaribleReferences()
 
     // get the button container
     auto btnContainer = ui_OutputButtonContainer;
-    ;
     // iterate through buttons and create callbacks
     auto childCount = lv_obj_get_child_count(btnContainer);
     for (short i = 0; i < childCount; i++)
@@ -348,26 +344,36 @@ void DisplayManager::setupLvglVaribleReferences()
                                 ESP.restart();
                             } }, LV_EVENT_CLICKED, NULL);
 
+    // Setup the config page
+    IPAddress ip = WiFi.localIP();
+    String ipStr = String(ip[0]) + "." + String(ip[1]) + "." + String(ip[2]) + ".";
+    lv_label_set_text(ui_IPAddress, ipStr.c_str());
+    lv_spinbox_set_value(ui_IPDigitsBox, lastIPDigit);
+    lv_obj_add_event_cb(ui_IPDigitsBox, ui_event_IP_Change_Callback, LV_EVENT_VALUE_CHANGED, this);
+
     Serial.println("LVGL initialized");
+}
+
+void DisplayManager::ui_event_IP_Change_Callback(lv_event_t *e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+    if (event_code == LV_EVENT_VALUE_CHANGED)
+    {
+        DisplayManager *self = static_cast<DisplayManager *>(lv_event_get_user_data(e));
+        if (!self)
+            return;
+
+        byte lastIPDigits = lv_spinbox_get_value(ui_IPDigitsBox);
+        if (lastIPDigits == self->lastIPDigit)
+            return;
+
+        self->sendCommandString(NetworkCommandType::SET_IP, String(lastIPDigits));
+    }
 }
 
 void DisplayManager::ui_event_Monitor_Callback(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
-
-    // if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_RIGHT)
-    // {
-    //     selectedVolumeArc++;
-    //     if (selectedVolumeArc >= numVolumeArcs)
-    //         selectedVolumeArc = 0;
-    // }
-    // else if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_LEFT)
-    // {
-    //     if (selectedVolumeArc == 0)
-    //         selectedVolumeArc = numVolumeArcs - 1;
-    //     else
-    //         selectedVolumeArc--;
-    // }
 
     // handle invisible buttons for increment/decrement on monitor screen
     if (event_code == LV_EVENT_CLICKED)
@@ -431,7 +437,7 @@ void DisplayManager::output_btn_event_cb(lv_event_t *e)
     bool newState = !getStripOutputEnabled(5 + busIdx, outIdx);
     String commandString = "Strip[" + String(5 + busIdx) + "].A" + String(outIdx + 1) + " = " + String(newState);
     Serial.println(commandString);
-    self->sendCommandString(commandString);
+    self->sendCommandString(NetworkCommandType::SEND_VBAN_COMMAND, commandString);
 }
 
 // Wrapper with generic pointers to avoid parser issues with forward typedefs in some toolchains.
@@ -480,27 +486,28 @@ void DisplayManager::setIsInteracting(bool interacting)
     isInteracting = interacting;
 }
 
-void DisplayManager::sendCommandString(const String &command)
+void DisplayManager::sendCommandString(NetworkCommandType type, const String &command)
 {
     if (!s_cmdQueue)
     { /* fallback: ignore or use mutex */
         return;
     }
-    CmdItem item;
+    NetworkCommand item;
+    item.type = type;
     strncpy(item.payload, command.c_str(), sizeof(item.payload));
     item.payload[sizeof(item.payload) - 1] = '\0';
     xQueueSend(s_cmdQueue, &item, 0); // non-blocking; increase timeout if needed
 }
 
-std::vector<String> DisplayManager::getIssuedCommands()
+std::vector<NetworkCommand> DisplayManager::getIssuedCommands()
 {
-    std::vector<String> out;
+    std::vector<NetworkCommand> out;
     if (!s_cmdQueue)
         return out;
-    CmdItem item;
+    NetworkCommand item;
     while (xQueueReceive(s_cmdQueue, &item, 0) == pdTRUE)
     {
-        out.emplace_back(item.payload);
+        out.emplace_back(item);
     }
     return out;
 }

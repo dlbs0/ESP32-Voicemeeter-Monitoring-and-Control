@@ -15,7 +15,7 @@ extern void ui_Config_screen_init(void);
 extern void ui_Config_screen_destroy(void);
 extern lv_obj_t * ui_Config;
 extern lv_obj_t * ui_Container2;
-extern lv_obj_t * ui_Label2;
+extern lv_obj_t * ui_IPAddress;
 extern void ui_event_IPMinus(lv_event_t * e);
 extern lv_obj_t * ui_IPMinus;
 extern lv_obj_t * ui_MinusLabel;

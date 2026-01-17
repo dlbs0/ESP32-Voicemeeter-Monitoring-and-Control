@@ -4,6 +4,7 @@
 #include <CST816S.h>
 #include <lvgl.h>
 #include "VoicemeeterProtocol.h"
+#include "NetworkingManager.h"
 #include "ui/ui.h"
 
 // Forward declaration
@@ -32,13 +33,13 @@ class DisplayManager
 public:
     DisplayManager();
     void begin();
-    void begin(class PowerManager *powerMgr);
+    void begin(class PowerManager *powerMgr, byte lastIPDigit = -1);
     void update(byte displayShouldBeOn, byte reducePowerMode);
     void showLatestVoicemeeterData(const tagVBAN_VMRT_PACKET &packet);
     void showLatestBatteryData(float battPerc, int chgTime, float battVolt);
     void setConnectionStatus(bool connected);
     void setIsInteracting(bool interacting);
-    std::vector<String> getIssuedCommands();
+    std::vector<NetworkCommand> getIssuedCommands();
     long getLastTouchTime() { return lastTouchTime; }
     UiState getCurrentScreen() { return currentScreen; }
     short getSelectedVolumeArc() { return selectedVolumeArc; }
@@ -60,6 +61,7 @@ private:
     float convertLevelToPercent(int level);
     float convertLevelToDb(int level);
     static bool getStripOutputEnabled(byte stripNo, byte outputNo);
+    static uint32_t my_tick(void);
 
     // initialse the buffer with all zeros
     uint8_t lv_buffer[BUF_SIZE] = {0};
@@ -83,12 +85,11 @@ private:
     static void lv_touch_read(lv_indev_t *indev, lv_indev_data_t *data);
     static void output_btn_event_cb(lv_event_t *e);
     static void ui_event_Monitor_Callback(lv_event_t *e);
+    static void ui_event_IP_Change_Callback(lv_event_t *e);
     static bool find_output_button(lv_obj_t *btn, int &busIdx, int &outIdx);
 
-    std::vector<String> issuedCommands;
-    void sendCommandString(const String &command);
-
-    static uint32_t my_tick(void);
+    std::vector<NetworkCommand> issuedCommands;
+    void sendCommandString(NetworkCommandType type, const String &command);
 
     struct pendingButton
     {
@@ -101,6 +102,8 @@ private:
     float batteryPercentage = 0;
     float batteryVoltage = 0;
     int chargeTime = 0;
+
+    byte lastIPDigit;
 
     bool isInteracting = false;
     bool wasDisplayOn = true;

@@ -7,7 +7,7 @@
 
 lv_obj_t * ui_Config = NULL;
 lv_obj_t * ui_Container2 = NULL;
-lv_obj_t * ui_Label2 = NULL;
+lv_obj_t * ui_IPAddress = NULL;
 lv_obj_t * ui_IPMinus = NULL;
 lv_obj_t * ui_MinusLabel = NULL;
 lv_obj_t * ui_IPDigitsBox = NULL;
@@ -77,13 +77,13 @@ void ui_Config_screen_init(void)
     lv_obj_set_flex_align(ui_Container2, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_remove_flag(ui_Container2, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
-    ui_Label2 = lv_label_create(ui_Container2);
-    lv_obj_set_width(ui_Label2, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_Label2, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_Label2, -9);
-    lv_obj_set_y(ui_Label2, 0);
-    lv_obj_set_align(ui_Label2, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_Label2, "192.168.72. ");
+    ui_IPAddress = lv_label_create(ui_Container2);
+    lv_obj_set_width(ui_IPAddress, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_IPAddress, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_IPAddress, -9);
+    lv_obj_set_y(ui_IPAddress, 0);
+    lv_obj_set_align(ui_IPAddress, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_IPAddress, "192.168.72. ");
 
     ui_IPMinus = lv_button_create(ui_Container2);
     lv_obj_set_width(ui_IPMinus, 40);
@@ -212,7 +212,7 @@ void ui_Config_screen_destroy(void)
     // NULL screen variables
     ui_Config = NULL;
     ui_Container2 = NULL;
-    ui_Label2 = NULL;
+    ui_IPAddress = NULL;
     ui_IPMinus = NULL;
     ui_MinusLabel = NULL;
     ui_IPDigitsBox = NULL;
