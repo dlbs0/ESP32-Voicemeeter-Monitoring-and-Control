@@ -21,10 +21,10 @@ void RotationManager::begin()
     uint8_t status = mlx.begin_with_hal(&arduinoHal); // A1, A0
     mlx.reset();
 
-    Serial.println(mlx.setGainSel(1));
-    Serial.println(mlx.setResolution(17, 17, 16)); // x, y, z)
-    Serial.println(mlx.setOverSampling(2));
-    Serial.println(mlx.setDigitalFiltering(4));
+    mlx.setGainSel(1);
+    mlx.setResolution(17, 17, 16); // x, y, z
+    mlx.setOverSampling(2);
+    mlx.setDigitalFiltering(4);
     mlx.startBurst(MLX90393::X_FLAG | MLX90393::Y_FLAG);
 
     initialized = true; // Mark as initialized after setup complete
@@ -77,7 +77,7 @@ float RotationManager::update()
 void RotationManager::enterWakeOnChangeMode()
 {
     Serial.println("Entering Wake-On-Change mode...");
-    // mlx.exit();
+    mlx.exit();
     mlx.setWOXYThreshold(50); // Set threshold for wake-on-change
     delay(100);
     mlx.startWakeOnChange(MLX90393::X_FLAG | MLX90393::Y_FLAG);

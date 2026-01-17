@@ -5,6 +5,14 @@
 #include "NetworkingManager.h"
 #include "DisplayManager.h"
 #include "PowerManager.h"
+#include <FastLED.h>
+#define LED_PIN 46
+#define COLOR_ORDER GRB
+#define CHIPSET WS2811
+#define NUM_LEDS 1
+#define BRIGHTNESS 250
+
+CRGB leds[NUM_LEDS];
 
 RotationManager rotationManager;
 DisplayManager displayManager;
@@ -20,6 +28,8 @@ void setup()
 {
   pinMode(0, OUTPUT);
   digitalWrite(0, HIGH); // something something reset
+  FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setBrightness(BRIGHTNESS);
 
   pinMode(45, OUTPUT);
   digitalWrite(45, HIGH); // enable peripheral power
@@ -30,9 +40,14 @@ void setup()
   {
     Serial.println("Woke up from Magenetometer Wake-On-Change interrupt.");
     lastInteractionTime = 1;
+    leds[0] = CRGB::Blue;
+    FastLED.show();
+    delay(250);
+    leds[0] = CRGB::Black;
+    FastLED.show();
   }
-  else
-    delay(5000);
+  // else
+    // delay(5000);
 
   Serial.begin(115200);
   Serial.println("Starting...");

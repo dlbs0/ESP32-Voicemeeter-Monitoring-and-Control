@@ -67,7 +67,8 @@ int PowerManager::getChargeTime()
 bool PowerManager::isCharging()
 {
     // positive charge rate means charging
-    return chargeRate > 0 || batteryPercentage >= 100.0f;
+    return false;
+    // return chargeRate > 0 || batteryPercentage >= 100.0f;
     // return true;
 }
 bool PowerManager::isEmptyBattery()
@@ -87,7 +88,6 @@ void PowerManager::updateDisplayPowerState(unsigned long lastNetworkActive, unsi
 
     // set up the internal variables with the latest data
     isPluggedIn = isCharging();
-    // isPluggedIn = false;
 
     bool tempDisplayOn = true;
     byte tempDisplayBrightness = 255;
