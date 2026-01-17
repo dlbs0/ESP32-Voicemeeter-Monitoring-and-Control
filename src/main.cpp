@@ -29,13 +29,20 @@ void enterWakeOnChangeMode()
 {
   Serial.println("Entering Wake-On-Change mode...");
   mlx.exit();
-  mlx.setWOTThreshold(100); // Set temperature threshold
-  mlx.setWOXYThreshold(50); // Set threshold for wake-on-change
-  delay(100);
+  uint8_t wocDiff;
+  mlx.getWocDiff(wocDiff);
+  Serial.printf("Current WOC_DIFF setting: %d\n", wocDiff);
+  if (wocDiff != 1)
+  {
+    Serial.println("Setting WOC_DIFF to 1 for Wake-On-Change mode.");
+    mlx.setWocDiff(1); // Enable Wake-On-Change on difference
+  }
+  mlx.setWOXYThreshold(10); // Set threshold for wake-on-change
   mlx.startWakeOnChange(MLX90393::X_FLAG | MLX90393::Y_FLAG);
-  delay(1000);
+  delay(10);
   Serial.println("Entered Wake-On-Change mode.");
-  // esp_sleep_enable_ext0_wakeup((gpio_num_t)INT_PIN, HIGH);
+  esp_sleep_enable_ext0_wakeup((gpio_num_t)INT_PIN, HIGH);
+  esp_deep_sleep_start();
 }
 
 void setup()
@@ -71,11 +78,15 @@ void setup()
   mlx.setDigitalFiltering(4);
   mlx.startBurst(MLX90393::X_FLAG | MLX90393::Y_FLAG);
 }
+
 bool hasStartedWakeOnChange = false;
 void loop()
 {
-  if (millis() > 10000 && !hasStartedWakeOnChange)
+  if (millis() > 4000 && !hasStartedWakeOnChange)
   {
+    leds[0] = CRGB::Red;
+    FastLED.show();
+    delay(500);
     enterWakeOnChangeMode();
     hasStartedWakeOnChange = true;
   }
