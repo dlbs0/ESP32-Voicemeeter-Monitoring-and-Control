@@ -1,82 +1,107 @@
 #include <Arduino.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include "RotationManager.h"
-#include "NetworkingManager.h"
-#include "DisplayManager.h"
-#include "PowerManager.h"
 
-RotationManager rotationManager;
-DisplayManager displayManager;
-NetworkingManager networkingManager;
-PowerManager powerManager;
-tagVBAN_VMRT_PACKET currentRTPPacket;
+#include <FastLED.h>
 
-unsigned long lastInteractionTime = 0;
+#define LED_PIN 46
+#define COLOR_ORDER GRB
+#define CHIPSET WS2811
+#define NUM_LEDS 1
+#define BRIGHTNESS 250
 
-#define ROTATION_ANGLE_TO_DB_CHANGE 9.0 // degrees
+CRGB leds[NUM_LEDS];
+
+static const int INT_PIN = 10; // (INT pin on MLX90393)
+
+MLX90393_Configurable mlx;
+MLX90393ArduinoHal arduinoHal;
+
+volatile bool interruptTriggered = false;
+unsigned long lastInterruptTime = 0;
+
+void IRAM_ATTR dataReadyISR()
+{
+  interruptTriggered = true;
+  lastInterruptTime = millis();
+}
+
+void enterWakeOnChangeMode()
+{
+  Serial.println("Entering Wake-On-Change mode...");
+  mlx.exit();
+  mlx.setWOTThreshold(100); // Set temperature threshold
+  mlx.setWOXYThreshold(50); // Set threshold for wake-on-change
+  delay(100);
+  mlx.startWakeOnChange(MLX90393::X_FLAG | MLX90393::Y_FLAG);
+  delay(1000);
+  Serial.println("Entered Wake-On-Change mode.");
+  // esp_sleep_enable_ext0_wakeup((gpio_num_t)INT_PIN, HIGH);
+}
 
 void setup()
 {
   pinMode(0, OUTPUT);
   digitalWrite(0, HIGH); // something something reset
 
+  // delay(5000);
+  Serial.begin(115200);
+  Serial.println("Starting up...");
   pinMode(45, OUTPUT);
   digitalWrite(45, HIGH); // enable peripheral power
-  Wire1.setPins(8, 9);
 
-  esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
-  if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0)
-  {
-    Serial.println("Woke up from Magenetometer Wake-On-Change interrupt.");
-    lastInteractionTime = 1;
-  }
-  else
-    delay(5000);
+  // Wire1.setPins(8, 9);
+  Wire1.begin(8, 9, 100000); // SDA, SCL, frequency
 
-  Serial.begin(115200);
-  Serial.println("Starting...");
+  FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setBrightness(BRIGHTNESS);
 
-  powerManager.begin(&rotationManager);
-  rotationManager.begin();
-  networkingManager.begin();
-  displayManager.begin(&powerManager, networkingManager.getDestIP());
+  // esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+  // if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0)
+  //   Serial.println("Woke up from Magenetometer Wake-On-Change interrupt.");
+  arduinoHal.set_twoWire(&Wire1);
+
+  attachInterrupt(digitalPinToInterrupt(INT_PIN), dataReadyISR, RISING);
+
+  uint8_t status = mlx.begin_with_hal(&arduinoHal); // A1, A0
+  mlx.reset();
+
+  mlx.setGainSel(1);
+  mlx.setResolution(17, 17, 16); // x, y, z
+  mlx.setOverSampling(2);
+  mlx.setDigitalFiltering(4);
+  mlx.startBurst(MLX90393::X_FLAG | MLX90393::Y_FLAG);
 }
-
+bool hasStartedWakeOnChange = false;
 void loop()
 {
-  // Cap this loop to ~60 FPS to reduce CPU usage and allow idle
-  const TickType_t loopFrequency = pdMS_TO_TICKS(16); // ~16 ms -> ~60Hz
-  static TickType_t xLastWakeTime = 0;
-  if (xLastWakeTime == 0)
-    xLastWakeTime = xTaskGetTickCount();
-  vTaskDelayUntil(&xLastWakeTime, loopFrequency);
-
-  displayManager.setConnectionStatus(networkingManager.isConnected());
-
-  networkingManager.update();
-  currentRTPPacket = networkingManager.getCurrentPacket();
-  displayManager.showLatestVoicemeeterData(currentRTPPacket);
-  float batteryPercentage = powerManager.getBatteryPercentage();
-  int chargeTime = powerManager.getChargeTime();
-  displayManager.showLatestBatteryData(batteryPercentage, chargeTime, powerManager.getBatteryVoltage());
-
-  // displayManager.update();
-  auto currentScreen = displayManager.getCurrentScreen();
-
-  float angleDiff = rotationManager.update();
-  if (angleDiff != 0.0f && currentScreen == MONITOR)
+  if (millis() > 10000 && !hasStartedWakeOnChange)
   {
-    float dbChange = angleDiff / ROTATION_ANGLE_TO_DB_CHANGE;
-    networkingManager.incrementVolume(displayManager.getSelectedVolumeArc(), dbChange);
+    enterWakeOnChangeMode();
+    hasStartedWakeOnChange = true;
   }
 
-  auto uiCommands = displayManager.getIssuedCommands();
-  for (const auto &cmd : uiCommands)
+  if (interruptTriggered && (millis() - lastInterruptTime < 500))
   {
-    networkingManager.sendCommand(cmd);
+    Serial.println("Magnetometer interrupt triggered!");
+    // Flash LED blue briefly
+    leds[0] = CRGB::Blue;
+    FastLED.show();
+    delay(250);
+    leds[0] = CRGB::Black;
+    FastLED.show();
+    interruptTriggered = false;
   }
+  MLX90393::txyzRaw data; // Structure to hold x, y, z data
 
-  lastInteractionTime = max(displayManager.getLastTouchTime(), rotationManager.getLastRotationTime());
-  powerManager.updateDisplayPowerState(networkingManager.getLastPacketTime(), lastInteractionTime, networkingManager.getConectionStartTime());
+  // Read the magnetometer data (this should be fast in burst mode)
+  if (mlx.readMeasurement(MLX90393::X_FLAG | MLX90393::Y_FLAG, data))
+  {
+    int16_t x = static_cast<int16_t>(data.x);
+    int16_t y = static_cast<int16_t>(data.y);
+    float angle = atan2(-y, x);
+    angle = angle * 180 / PI; // convert to degrees
+    angle += 180;             // offset to 0-360 degrees
+
+    Serial.printf("X: %d, Y: %d, Angle: %.2f\n", x, y, angle);
+  }
 }
