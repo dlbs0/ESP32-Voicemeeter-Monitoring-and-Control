@@ -330,7 +330,7 @@ void DisplayManager::setupLvglVaribleReferences()
         lv_obj_add_event_cb(btn, output_btn_event_cb, LV_EVENT_CLICKED, this);
     }
 
-    // lv_obj_add_event_cb(ui_Monitor, ui_event_Monitor_Callback, LV_EVENT_GESTURE, NULL);
+    lv_obj_add_event_cb(ui_Monitor, ui_event_Monitor_Callback, LV_EVENT_GESTURE, this);
     lv_obj_add_event_cb(ui_MonitorIncrementSelectedChannel, ui_event_Monitor_Callback, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_MonitorDecrementSelectedChannel, ui_event_Monitor_Callback, LV_EVENT_CLICKED, NULL);
 
@@ -389,6 +389,19 @@ void DisplayManager::ui_event_Monitor_Callback(lv_event_t *e)
                 selectedVolumeArc = numVolumeArcs - 1;
             else
                 selectedVolumeArc--;
+        }
+    }
+    else if (event_code == LV_EVENT_GESTURE)
+    {
+        if (lv_indev_get_gesture_dir(lv_indev_active()) == LV_DIR_BOTTOM)
+        {
+            // send a play pause command through Voicemeeter
+            DisplayManager *self = static_cast<DisplayManager *>(lv_event_get_user_data(e));
+            if (self)
+            {
+                // self->sendCommandString(NetworkCommandType::SEND_VBAN_COMMAND, "System.KeyPress(\"MEDIAPAUSE / MEDIAPLAY\");");
+                self->sendCommandString(NetworkCommandType::SEND_VBAN_COMMAND, "Command.Button[0].State = 1; Command.Button[0].State = 0; ");
+            }
         }
     }
 }
