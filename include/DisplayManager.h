@@ -3,6 +3,7 @@
 #include <TFT_eSPI.h> // Include the graphics library
 #include <CST816S.h>
 #include <lvgl.h>
+#include <Preferences.h>
 #include "VoicemeeterProtocol.h"
 #include "NetworkingManager.h"
 #include "ui/ui.h"
@@ -49,6 +50,7 @@ private:
     static TFT_eSPI tft;
     static CST816S touch;
     static tagVBAN_VMRT_PACKET latestVoicemeeterData;
+    Preferences usbSerialPreferences;
     static long lastTouchTime;
     static bool connectionStatus;
     static short selectedVolumeArc;
@@ -62,6 +64,7 @@ private:
     float convertLevelToPercent(int level);
     float convertLevelToDb(int level);
     static bool getStripOutputEnabled(byte stripNo, byte outputNo);
+    void setUSBSerialEnabled(bool enabled);
     static uint32_t my_tick(void);
 
     // initialse the buffer with all zeros
@@ -109,4 +112,5 @@ private:
     bool isInteracting = false;
     bool wasDisplayOn = true;
     bool isInitialized = false; // Flag to track initialization completion
+    bool hasSetupUSBSerial = false;
 };

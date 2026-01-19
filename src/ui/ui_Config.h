@@ -32,6 +32,9 @@ extern lv_obj_t * ui_ResetButton;
 extern lv_obj_t * ui_ResetLabel;
 extern lv_obj_t * ui_Label6;
 extern lv_obj_t * ui_BatteryLifeLabel;
+extern lv_obj_t * ui_Container1;
+extern lv_obj_t * ui_Label2;
+extern lv_obj_t * ui_USBSerialSwitch;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

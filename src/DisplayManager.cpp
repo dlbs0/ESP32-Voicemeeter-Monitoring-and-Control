@@ -32,6 +32,7 @@ void DisplayManager::begin(PowerManager *powerMgr, byte lastIPD)
 {
     powerManager = powerMgr;
     lastIPDigit = lastIPD;
+    usbSerialPreferences.begin("usbserial", false);
 
     /* Initialize LVGL */
     lv_init();
@@ -207,6 +208,26 @@ void DisplayManager::update(byte displayShouldBeOn, byte reducePowerMode)
 
     lv_timer_handler(); // Update the UI
     // powerManager->setDisplayReady(true);
+    if (!hasSetupUSBSerial && millis() > 15000)
+    {
+        bool usbSerialEnabled = usbSerialPreferences.getBool("enabled", true);
+        setUSBSerialEnabled(usbSerialEnabled);
+        hasSetupUSBSerial = true;
+    }
+}
+void DisplayManager::setUSBSerialEnabled(bool enabled)
+{
+    if (enabled)
+    {
+        Serial.println("USB Serial enabled from preferences.");
+        Serial.begin(115200);
+    }
+    else
+    {
+        Serial.println("USB Serial disabled from preferences.");
+        Serial.end();
+    }
+    usbSerialPreferences.putBool("enabled", enabled);
 }
 
 void DisplayManager::updateArcs()
@@ -348,6 +369,21 @@ void DisplayManager::setupLvglVaribleReferences()
 
     lv_spinbox_set_value(ui_IPDigitsBox, lastIPDigit);
     lv_obj_add_event_cb(ui_IPDigitsBox, ui_event_IP_Change_Callback, LV_EVENT_VALUE_CHANGED, this);
+    bool usbSerialEnabled = usbSerialPreferences.getBool("enabled", true);
+    if (usbSerialEnabled)
+        lv_obj_add_state(ui_USBSerialSwitch, LV_STATE_CHECKED);
+    lv_obj_add_event_cb(ui_USBSerialSwitch, [](lv_event_t *e)
+                        {
+                            lv_event_code_t event_code = lv_event_get_code(e);
+                            if (event_code == LV_EVENT_VALUE_CHANGED)
+                            {
+                                DisplayManager *self = static_cast<DisplayManager *>(lv_event_get_user_data(e));
+                                if (!self)
+                                    return;
+
+                                bool state = lv_obj_has_state((lv_obj_t *)lv_event_get_target(e), LV_STATE_CHECKED);
+                                self->setUSBSerialEnabled(state);
+                            } }, LV_EVENT_VALUE_CHANGED, this);
 
     Serial.println("LVGL initialized");
 }

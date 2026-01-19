@@ -20,6 +20,9 @@ lv_obj_t * ui_ResetButton = NULL;
 lv_obj_t * ui_ResetLabel = NULL;
 lv_obj_t * ui_Label6 = NULL;
 lv_obj_t * ui_BatteryLifeLabel = NULL;
+lv_obj_t * ui_Container1 = NULL;
+lv_obj_t * ui_Label2 = NULL;
+lv_obj_t * ui_USBSerialSwitch = NULL;
 // event funtions
 void ui_event_IPMinus(lv_event_t * e)
 {
@@ -63,15 +66,13 @@ void ui_Config_screen_init(void)
 {
     ui_Config = lv_obj_create(NULL);
     lv_obj_remove_flag(ui_Config, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_color(ui_Config, lv_color_hex(0x36495A), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_Config, lv_color_hex(0x1D262E), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Config, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Container2 = lv_obj_create(ui_Config);
     lv_obj_remove_style_all(ui_Container2);
     lv_obj_set_width(ui_Container2, 240);
     lv_obj_set_height(ui_Container2, 50);
-    lv_obj_set_x(ui_Container2, 0);
-    lv_obj_set_y(ui_Container2, -15);
     lv_obj_set_align(ui_Container2, LV_ALIGN_CENTER);
     lv_obj_set_flex_flow(ui_Container2, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_flex_align(ui_Container2, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -92,7 +93,7 @@ void ui_Config_screen_init(void)
     lv_obj_add_flag(ui_IPMinus, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_remove_flag(ui_IPMinus, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
     lv_obj_set_style_radius(ui_IPMinus, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui_IPMinus, lv_color_hex(0x718CA2), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_IPMinus, lv_color_hex(0x2B3C4A), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_IPMinus, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MinusLabel = lv_label_create(ui_IPMinus);
@@ -124,7 +125,7 @@ void ui_Config_screen_init(void)
     lv_obj_add_flag(ui_IPPlus, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_remove_flag(ui_IPPlus, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
     lv_obj_set_style_radius(ui_IPPlus, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui_IPPlus, lv_color_hex(0x718CA2), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_IPPlus, lv_color_hex(0x2B3C4A), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_IPPlus, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_PlusLabel = lv_label_create(ui_IPPlus);
@@ -139,7 +140,7 @@ void ui_Config_screen_init(void)
     lv_obj_set_width(ui_Container4, 182);
     lv_obj_set_height(ui_Container4, LV_SIZE_CONTENT);    /// 50
     lv_obj_set_x(ui_Container4, 0);
-    lv_obj_set_y(ui_Container4, 50);
+    lv_obj_set_y(ui_Container4, 57);
     lv_obj_set_align(ui_Container4, LV_ALIGN_CENTER);
     lv_obj_set_flex_flow(ui_Container4, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(ui_Container4, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -154,7 +155,7 @@ void ui_Config_screen_init(void)
     lv_obj_add_flag(ui_BackButton, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_remove_flag(ui_BackButton, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
     lv_obj_set_style_radius(ui_BackButton, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui_BackButton, lv_color_hex(0x718CA2), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_BackButton, lv_color_hex(0x2B3C4A), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_BackButton, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_BackLabel = lv_label_create(ui_BackButton);
@@ -172,7 +173,7 @@ void ui_Config_screen_init(void)
     lv_obj_add_flag(ui_ResetButton, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_remove_flag(ui_ResetButton, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
     lv_obj_set_style_radius(ui_ResetButton, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui_ResetButton, lv_color_hex(0x718CA2), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_ResetButton, lv_color_hex(0x2B3C4A), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_ResetButton, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_ResetLabel = lv_label_create(ui_ResetButton);
@@ -185,7 +186,7 @@ void ui_Config_screen_init(void)
     lv_obj_set_width(ui_Label6, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label6, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_Label6, 0);
-    lv_obj_set_y(ui_Label6, -70);
+    lv_obj_set_y(ui_Label6, -85);
     lv_obj_set_align(ui_Label6, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label6, "Config");
     lv_obj_set_style_text_font(ui_Label6, &lv_font_montserrat_20, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -197,6 +198,33 @@ void ui_Config_screen_init(void)
     lv_obj_set_y(ui_BatteryLifeLabel, 93);
     lv_obj_set_align(ui_BatteryLifeLabel, LV_ALIGN_CENTER);
     lv_label_set_text(ui_BatteryLifeLabel, "8h");
+
+    ui_Container1 = lv_obj_create(ui_Config);
+    lv_obj_remove_style_all(ui_Container1);
+    lv_obj_set_width(ui_Container1, 150);
+    lv_obj_set_height(ui_Container1, 28);
+    lv_obj_set_x(ui_Container1, 1);
+    lv_obj_set_y(ui_Container1, -45);
+    lv_obj_set_align(ui_Container1, LV_ALIGN_CENTER);
+    lv_obj_set_flex_flow(ui_Container1, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(ui_Container1, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+    lv_obj_remove_flag(ui_Container1, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+
+    ui_Label2 = lv_label_create(ui_Container1);
+    lv_obj_set_width(ui_Label2, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_Label2, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_align(ui_Label2, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_Label2, "USB Serial");
+
+    ui_USBSerialSwitch = lv_switch_create(ui_Container1);
+    lv_obj_set_width(ui_USBSerialSwitch, 50);
+    lv_obj_set_height(ui_USBSerialSwitch, 25);
+    lv_obj_set_x(ui_USBSerialSwitch, -22);
+    lv_obj_set_y(ui_USBSerialSwitch, -7);
+    lv_obj_set_align(ui_USBSerialSwitch, LV_ALIGN_CENTER);
+
+    lv_obj_set_style_bg_color(ui_USBSerialSwitch, lv_color_hex(0x1565A4), LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(ui_USBSerialSwitch, 255, LV_PART_INDICATOR | LV_STATE_CHECKED);
 
     lv_obj_add_event_cb(ui_IPMinus, ui_event_IPMinus, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_IPPlus, ui_event_IPPlus, LV_EVENT_ALL, NULL);
@@ -225,5 +253,8 @@ void ui_Config_screen_destroy(void)
     ui_ResetLabel = NULL;
     ui_Label6 = NULL;
     ui_BatteryLifeLabel = NULL;
+    ui_Container1 = NULL;
+    ui_Label2 = NULL;
+    ui_USBSerialSwitch = NULL;
 
 }
