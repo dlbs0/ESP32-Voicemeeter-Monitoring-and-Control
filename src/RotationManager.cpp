@@ -25,6 +25,7 @@ void RotationManager::begin()
     mlx.setResolution(17, 17, 16); // x, y, z
     mlx.setOverSampling(2);
     mlx.setDigitalFiltering(4);
+    mlx.setBurstDataRate(0); // this number gets multiplied by 20ms to set the burst data rate
     mlx.startBurst(MLX90393::X_FLAG | MLX90393::Y_FLAG);
 
     initialized = true; // Mark as initialized after setup complete
@@ -82,6 +83,8 @@ void RotationManager::enterWakeOnChangeMode()
     if (wocDiff != 1)
         mlx.setWocDiff(1);    // Enable Wake-On-Change on difference
     mlx.setWOXYThreshold(10); // Set threshold for wake-on-change
+    mlx.setBurstDataRate(32); // this number gets multiplied by 20ms to set the burst data rate
+
     mlx.startWakeOnChange(MLX90393::X_FLAG | MLX90393::Y_FLAG);
     delay(10);
     Serial.println("Entered Wake-On-Change mode.");
@@ -90,6 +93,7 @@ void RotationManager::enterWakeOnChangeMode()
 
 void RotationManager::deepSleep()
 {
+    mlx.setBurstDataRate(64); // this number gets multiplied by 20ms to set the burst data rate
     mlx.exit();
     delay(10);
     mlx.reset();

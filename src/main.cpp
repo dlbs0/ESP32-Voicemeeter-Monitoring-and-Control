@@ -30,8 +30,8 @@ void setup()
   {
     lastInteractionTime = 1;
   }
-  // // else
-  //   // delay(5000);
+  // else
+  //   delay(5000);
 
   Serial.begin(115200);
   Serial.println("Starting...");

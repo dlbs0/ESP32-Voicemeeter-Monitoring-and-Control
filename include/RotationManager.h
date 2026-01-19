@@ -16,6 +16,12 @@ public:
         WOC_DIFF_MASK = 0x1000,
         WOC_DIFF_SHIFT = 12
     };
+    enum
+    {
+        BURST_DATA_RATE_REG = 0x1,
+        BURST_DATA_RATE_MASK = 0b00111111,
+        BURST_DATA_RATE_SHIFT = 0
+    };
     MLX90393_Configurable(uint8_t address = 0x18)
         : i2c_address(address) {}
 
@@ -52,6 +58,25 @@ public:
         uint8_t status = readRegister(WOC_DIFF_REG, reg_val);
         ext_trig = (reg_val & WOC_DIFF_MASK) >> WOC_DIFF_SHIFT;
         return checkStatus(status);
+    }
+
+    uint8_t getBurstDataRate(uint8_t &bdr)
+    {
+        uint16_t reg_val;
+        uint8_t status = readRegister(BURST_DATA_RATE_REG, reg_val);
+        bdr = (reg_val & BURST_DATA_RATE_MASK) >> BURST_DATA_RATE_SHIFT;
+        return checkStatus(status);
+    }
+
+    uint8_t setBurstDataRate(uint8_t bdr)
+    {
+        uint16_t old_val;
+        uint8_t status1 = readRegister(BURST_DATA_RATE_REG, old_val);
+        uint8_t status2 = writeRegister(BURST_DATA_RATE_REG,
+                                        (old_val & ~BURST_DATA_RATE_MASK) |
+                                            ((uint16_t(bdr) << BURST_DATA_RATE_SHIFT) &
+                                             BURST_DATA_RATE_MASK));
+        return checkStatus(status1) | checkStatus(status2);
     }
 };
 
