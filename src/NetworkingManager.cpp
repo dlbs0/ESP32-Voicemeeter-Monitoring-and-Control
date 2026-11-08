@@ -10,9 +10,69 @@ void NetworkingManager::setupStores()
     preferences.begin("ipLastDigits", false);
 }
 
+// Access point details from the previous run, kept in RTC memory across deep sleep
+RTC_DATA_ATTR static uint32_t rtcWifiMagic = 0;
+RTC_DATA_ATTR static uint8_t rtcWifiChannel = 0;
+RTC_DATA_ATTR static uint8_t rtcWifiBssid[6] = {0};
+RTC_DATA_ATTR static char rtcWifiSsid[33] = {0}; // RAM only: cleared on power loss, never written to flash
+RTC_DATA_ATTR static char rtcWifiPass[65] = {0};
+static constexpr uint32_t RTC_WIFI_MAGIC = 0x51F1C0DE;
+static constexpr unsigned long FAST_CONNECT_TIMEOUT_MS = 4000;
+
+// Reconnect straight to the last known AP/channel using the credentials already stored
+// by WiFiManager. Skipping the channel scan is what makes this fast.
+bool NetworkingManager::connectFast()
+{
+    if (rtcWifiMagic != RTC_WIFI_MAGIC)
+    {
+        Serial.printf("Fast WiFi skipped: no cached AP in RTC memory (magic=0x%08X)\n", (unsigned)rtcWifiMagic);
+        return false;
+    }
+
+    // WiFi.SSID() is empty until WiFi has been started with a config, so use the
+    // credentials we cached in RTC memory after the last successful connect.
+    if (rtcWifiSsid[0] == '\0')
+    {
+        Serial.println("Fast WiFi skipped: no cached SSID in RTC memory");
+        return false;
+    }
+    Serial.printf("Fast WiFi: trying '%s' on channel %u\n", rtcWifiSsid, rtcWifiChannel);
+
+    WiFi.mode(WIFI_STA);
+    unsigned long start = millis();
+    WiFi.persistent(false); // don't rewrite flash with the channel/BSSID variant of the config
+    WiFi.begin(rtcWifiSsid, rtcWifiPass, rtcWifiChannel, rtcWifiBssid, true);
+    while (WiFi.status() != WL_CONNECTED && millis() - start < FAST_CONNECT_TIMEOUT_MS)
+        delay(10);
+    WiFi.persistent(true);
+
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        Serial.printf("Fast WiFi reconnect took %lu ms\n", millis() - start);
+        return true;
+    }
+
+    // AP moved/changed: forget it and let WiFiManager do a normal scan-based connect
+    Serial.println("Fast WiFi reconnect failed, falling back to WiFiManager");
+    rtcWifiMagic = 0;
+    WiFi.disconnect();
+    return false;
+}
+
 bool NetworkingManager::begin()
 {
-    wifiManager.autoConnect("VOLUME");
+    fastWifi = connectFast();
+    if (!fastWifi)
+        wifiManager.autoConnect("VOLUME");
+
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        rtcWifiChannel = WiFi.channel();
+        memcpy(rtcWifiBssid, WiFi.BSSID(), sizeof(rtcWifiBssid));
+        strlcpy(rtcWifiSsid, WiFi.SSID().c_str(), sizeof(rtcWifiSsid));
+        strlcpy(rtcWifiPass, WiFi.psk().c_str(), sizeof(rtcWifiPass));
+        rtcWifiMagic = RTC_WIFI_MAGIC;
+    }
 
     Serial.print("Connected! IP address: ");
     Serial.println(WiFi.localIP());

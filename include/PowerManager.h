@@ -24,9 +24,12 @@ public:
     void setDisplayReady(bool ready) { displayReady = ready; }
 
     void deepSleep();
+    bool usedCachedBattery() const { return usedCache; }
 
 private:
+    bool usedCache = false;
     void updateBatteryInfo();
+    bool restoreCachedBattery();
     void managePower();
     void setBrightness(uint8_t brightness, bool instant);
 
@@ -53,6 +56,9 @@ private:
 
     bool isPluggedIn = false;
     volatile bool displayReady = false;
+
+    // Skip waiting for the fuel gauge on wake if the last known charge was above this
+    static constexpr float FAST_BOOT_MIN_PERCENT = 10.0f;
 
     // Timeouts for display power management
     static constexpr unsigned long BATTERY_NO_NETWORK_TIMEOUT = 16000;     // 2 minutes before display off on battery

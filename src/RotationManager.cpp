@@ -77,16 +77,22 @@ float RotationManager::update()
 
 void RotationManager::enterWakeOnChangeMode()
 {
-    mlx.exit();
-    uint8_t wocDiff;
-    mlx.getWocDiff(wocDiff);
+    // Each status is 0 on success. Anything else means the sensor did not accept the
+    // command, so wake-on-change may not be armed and the dial won't wake the board.
+    uint8_t stExit = mlx.exit();
+    uint8_t wocDiff = 0;
+    uint8_t stGetWoc = mlx.getWocDiff(wocDiff);
+    uint8_t stSetWoc = 0;
     if (wocDiff != 1)
-        mlx.setWocDiff(1);    // Enable Wake-On-Change on difference
-    mlx.setWOXYThreshold(10); // Set threshold for wake-on-change
-    mlx.setBurstDataRate(32); // this number gets multiplied by 20ms to set the burst data rate
-
-    mlx.startWakeOnChange(MLX90393::X_FLAG | MLX90393::Y_FLAG);
+        stSetWoc = mlx.setWocDiff(1);                   // Enable Wake-On-Change on difference
+    uint8_t stThresh = mlx.setWOXYThreshold(10);        // Set threshold for wake-on-change
+    uint8_t stRate = mlx.setBurstDataRate(32);          // this number gets multiplied by 20ms to set the burst data rate
+    uint8_t stStart = mlx.startWakeOnChange(MLX90393::X_FLAG | MLX90393::Y_FLAG);
     delay(10);
+    Serial.printf("WOC status: exit=%u getWoc=%u (wocDiff=%u) setWoc=%u threshold=%u rate=%u start=%u\n",
+                  stExit, stGetWoc, wocDiff, stSetWoc, stThresh, stRate, stStart);
+    // ext0 wakes on HIGH, so if INT is already high we would wake immediately
+    Serial.printf("INT pin level before sleep: %d\n", digitalRead(INT_PIN));
     Serial.println("Entered Wake-On-Change mode.");
     esp_sleep_enable_ext0_wakeup((gpio_num_t)INT_PIN, HIGH);
 }

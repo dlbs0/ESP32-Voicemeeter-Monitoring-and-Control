@@ -1,5 +1,9 @@
 #pragma once
 #include <Arduino.h>
+#include <FS.h>
+// TFT_eSPI defines FS_NO_GLOBALS before including FS.h, which hides the global
+// FS alias that WebServer.h (via WiFiManager) needs. Re-add it here.
+using fs::FS;
 #include <WiFiManager.h>
 #include <WiFi.h>
 #include <AsyncUDP.h>
@@ -30,6 +34,7 @@ public:
     void sendCommand(const NetworkCommand &command);
     void incrementVolume(uint8_t channel, bool up);
     void incrementVolume(uint8_t channel, float level);
+    bool usedFastWifi() const { return fastWifi; }
     unsigned long getLastPacketTime() const { return lastPacketTime; }
     unsigned long getConectionStartTime() const { return connectionStartTime; }
     char getDestIP();
@@ -49,6 +54,8 @@ private:
     uint8_t commandFrameCounter;
     bool ipAddressNotSaved;
 
+    bool connectFast();
+    bool fastWifi = false;
     std::vector<uint8_t> createCommandPacket(const String &command);
     std::vector<uint8_t> createRTPPacket();
     void handleUDPPacket(AsyncUDPPacket packet);

@@ -3,6 +3,13 @@
 
 byte PowerManager::currentBrightness = 1;
 
+// Battery state from the previous run, kept in RTC memory across deep sleep
+RTC_DATA_ATTR static uint32_t rtcBatteryMagic = 0;
+RTC_DATA_ATTR static float rtcBatteryVoltage = 0;
+RTC_DATA_ATTR static float rtcBatteryPercentage = 0;
+RTC_DATA_ATTR static float rtcChargeRate = 0;
+static constexpr uint32_t RTC_BATTERY_MAGIC = 0xBA77E127;
+
 PowerManager::PowerManager()
 {
 }
@@ -24,6 +31,18 @@ void PowerManager::begin(RotationManager *rotMgr)
     }
     Serial.println("MAX17048 found!");
     maxlipo.wake();
+
+    if (restoreCachedBattery())
+    {
+        // Last run left the battery healthy, so don't block on the gauge (it needs a
+        // while to produce a valid reading after begin() resets it). A real reading
+        // replaces the cached values shortly after boot; if it turns out the battery
+        // is empty, updateDisplayPowerState() will put us straight back to sleep.
+        usedCache = true;
+        Serial.printf("Using cached battery state (%.1f%%, %.2fV), skipping gauge wait\n", batteryPercentage, batteryVoltage);
+        return;
+    }
+
     float bv = maxlipo.cellVoltage();
     while (bv == 0 || isnan(bv))
     {
@@ -170,17 +189,26 @@ void PowerManager::deepSleep()
     digitalWrite(45, LOW);
     esp_wifi_stop();
     if (isEmptyBattery())
+    {
+        Serial.println("Entering deep sleep due to low battery (no wake source).");
         esp_deep_sleep_start();
+    }
     // esp_sleep_enable_timer_wakeup((uint64_t)DEEP_SLEEP_INTERVAL * 100 * 1000ULL);
 
-    Serial.println("Entering deep sleep due to low battery...");
+    Serial.println("Entering deep sleep (idle, wake on dial movement)...");
     delay(500); // allow time for message to be sent
     esp_deep_sleep_start();
 }
 
 void PowerManager::updateBatteryInfo()
 {
-    batteryVoltage = maxlipo.cellVoltage();
+    float voltage = maxlipo.cellVoltage();
+    // The gauge reads 0/NaN until it has settled after a reset. Never let that
+    // overwrite good (or cached) values, or we'd wrongly treat the battery as empty.
+    if (voltage == 0 || isnan(voltage))
+        return;
+
+    batteryVoltage = voltage;
     batteryPercentage = maxlipo.cellPercent();
     chargeRate = maxlipo.chargeRate();
     if (chargeRate == 0)
@@ -189,8 +217,31 @@ void PowerManager::updateBatteryInfo()
         chargeTime = static_cast<int>(abs(batteryPercentage / chargeRate));
     Serial.printf("Battery Percentage: %f. Charge Time: %d. Charge Rate: %f. Voltage: %f\n", batteryPercentage, chargeTime, chargeRate, batteryVoltage);
 
-    if (batteryVoltage != 0 && !isnan(batteryVoltage))
-        lastCheckTime = millis();
+    lastCheckTime = millis();
+
+    // Remember for the next wake (RTC memory survives deep sleep)
+    rtcBatteryVoltage = batteryVoltage;
+    rtcBatteryPercentage = batteryPercentage;
+    rtcChargeRate = chargeRate;
+    rtcBatteryMagic = RTC_BATTERY_MAGIC;
+}
+
+bool PowerManager::restoreCachedBattery()
+{
+    if (rtcBatteryMagic != RTC_BATTERY_MAGIC)
+        return false; // first boot / power loss: RTC memory is not valid
+    if (rtcBatteryPercentage <= FAST_BOOT_MIN_PERCENT || isnan(rtcBatteryPercentage) || isnan(rtcBatteryVoltage))
+        return false; // battery was getting low, take a real measurement before waking up
+
+    batteryVoltage = rtcBatteryVoltage;
+    batteryPercentage = rtcBatteryPercentage;
+    chargeRate = rtcChargeRate;
+    chargeTime = -1; // unknown until a real reading arrives
+
+    // Mark as checked "now", but schedule the first real refresh ~3s after boot
+    // (instead of a full updateRate) so a stale cache is corrected quickly.
+    lastCheckTime = max(1UL, millis() - (unsigned long)(updateRate - 3000));
+    return true;
 }
 
 void PowerManager::setBrightness(uint8_t brightness, bool instant)

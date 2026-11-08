@@ -13,6 +13,8 @@ PowerManager powerManager;
 tagVBAN_VMRT_PACKET currentRTPPacket;
 
 unsigned long lastInteractionTime = 0;
+unsigned long setupCompleteMillis = 0;
+int bootWakeCause = 0;
 
 #define ROTATION_ANGLE_TO_DB_CHANGE 9.0 // degrees
 
@@ -30,11 +32,12 @@ void setup()
   {
     lastInteractionTime = 1;
   }
-  // else
-  //   delay(5000);
+  // delay(5000);
 
   Serial.begin(115200);
   Serial.println("Starting...");
+  bootWakeCause = (int)wakeup_reason;
+  Serial.printf("Wake cause: %d (0=power/reset, 2=ext0), reset reason: %d\n", bootWakeCause, (int)esp_reset_reason());
   Serial.printf("Initial millis: %lu\n", millis());
   powerManager.begin(&rotationManager);
   Serial.printf("PowerManager initialized. Millis: %lu\n", millis());
@@ -44,7 +47,8 @@ void setup()
   displayManager.begin(&powerManager, networkingManager.getDestIP());
   Serial.printf("DisplayManager initialized. Millis: %lu\n", millis());
   networkingManager.begin();
-  Serial.printf("Setup complete. Millis: %lu\n", millis());
+  setupCompleteMillis = millis();
+  Serial.printf("Setup complete. Millis: %lu\n", setupCompleteMillis);
   displayManager.showIpAddress(networkingManager.getDeviceIP());
 }
 
@@ -56,6 +60,16 @@ void loop()
   if (xLastWakeTime == 0)
     xLastWakeTime = xTaskGetTickCount();
   vTaskDelayUntil(&xLastWakeTime, loopFrequency);
+
+  // One-shot report once USB serial has had time to re-enumerate after a deep-sleep wake,
+  // since everything printed during boot is lost if no monitor was attached yet.
+  static bool bootReported = false;
+  if (!bootReported && millis() > 6000)
+  {
+    bootReported = true;
+    Serial.printf("BOOT REPORT: wakeCause=%d setupComplete=%lums cachedBattery=%d fastWifi=%d\n",
+                  bootWakeCause, setupCompleteMillis, powerManager.usedCachedBattery(), networkingManager.usedFastWifi());
+  }
 
   displayManager.setConnectionStatus(networkingManager.isConnected());
 
