@@ -58,5 +58,10 @@
     "thread": "cpp"
   },
   "python-envs.defaultEnvManager": "ms-python.python:system",
-  "python-envs.pythonProjects": []
+  "python-envs.pythonProjects": [],
+  "[c]": { "editor.defaultFormatter": "ms-vscode.cpptools" },
+  "[cpp]": { "editor.defaultFormatter": "ms-vscode.cpptools" },
+  "editor.formatOnSave": false,
+  "C_Cpp.formatting": "default",
+  "cmake.sourceDirectory": "C:/Users/Daniel/GIT/ESP32-Voicemeeter-Monitoring-and-Control/src/ui"
 }
