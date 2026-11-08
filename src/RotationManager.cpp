@@ -81,7 +81,13 @@ void RotationManager::enterWakeOnChangeMode()
     // command, so wake-on-change may not be armed and the dial won't wake the board.
     uint8_t stExit = mlx.exit();
     uint8_t wocDiff = 0;
+    delay(2); // the sensor can still be busy leaving burst mode, which made the next read fail
     uint8_t stGetWoc = mlx.getWocDiff(wocDiff);
+    if (stGetWoc != 0)
+    {
+        delay(5);
+        stGetWoc = mlx.getWocDiff(wocDiff);
+    }
     uint8_t stSetWoc = 0;
     if (wocDiff != 1)
         stSetWoc = mlx.setWocDiff(1);                   // Enable Wake-On-Change on difference
