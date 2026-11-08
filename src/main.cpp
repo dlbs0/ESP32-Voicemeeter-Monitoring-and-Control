@@ -46,6 +46,9 @@ void setup()
   Serial.printf("RotationManager initialized. Millis: %lu\n", millis());
   displayManager.begin(&powerManager, networkingManager.getDestIP());
   Serial.printf("DisplayManager initialized. Millis: %lu\n", millis());
+  // Light the screen as soon as the UI is ready (Loading screen) instead of waiting for WiFi
+  powerManager.turnOnDisplayNow();
+  Serial.printf("Backlight on. Millis: %lu\n", millis());
   networkingManager.begin();
   setupCompleteMillis = millis();
   Serial.printf("Setup complete. Millis: %lu\n", setupCompleteMillis);

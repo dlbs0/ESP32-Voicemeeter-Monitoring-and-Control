@@ -24,6 +24,9 @@ public:
     void setDisplayReady(bool ready) { displayReady = ready; }
 
     void deepSleep();
+    // Turn the backlight fully on straight away (used once the UI is ready, before the
+    // main loop's normal power management takes over)
+    void turnOnDisplayNow() { setBrightness(255, true); }
     bool usedCachedBattery() const { return usedCache; }
 
 private:
